@@ -10,6 +10,8 @@ mod terminal;
 use terminal::{Terminal, Size, Position};
 use std::io::Error;
 
+const NAME: &str = env!("CARGO_PKG_NAME");
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub struct Editor {
     should_quit: bool,
@@ -58,9 +60,10 @@ impl Editor {
         Terminal::hide_cursor()?;
         if self.should_quit {
             Terminal::clear_screen()?;
-            Terminal::print(">>> Exiting.\r\n")?;
+            Terminal::print(">>> Exiting\r\n")?;
         } else {
             Self::draw_rows()?;
+            Self::draw_welcome_msg()?;
             Terminal::move_cursor_to(Position {x: 0, y: 0})?;
         }
         Terminal::show_cursor()?;
@@ -77,6 +80,18 @@ impl Editor {
                 Terminal::print("\r\n")?;
             }
         }
+
+        Ok(())
+    }
+
+    fn draw_welcome_msg() -> Result<(), Error> {
+        let Size {height, width} = Terminal::size()?;
+        let to_print = format!(">>> {NAME} -- v{VERSION}");
+        let third_height = height / 3;
+        let half_width = (width - to_print.len() as u16) / 2;
+
+        Terminal::move_cursor_to(Position {x: half_width, y: third_height})?;
+        Terminal::print(&to_print)?;
 
         Ok(())
     }
