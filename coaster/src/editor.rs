@@ -76,7 +76,7 @@ impl Editor {
         for current_row in 0..height {
             Terminal::clear_line()?;
             Terminal::print("~")?;
-            if current_row + 1 < height {
+            if current_row.saturating_add(1) < height {
                 Terminal::print("\r\n")?;
             }
         }
@@ -86,9 +86,9 @@ impl Editor {
 
     fn draw_welcome_msg() -> Result<(), Error> {
         let Size {height, width} = Terminal::size()?;
-        let to_print = format!(">>> {NAME} -- v{VERSION}");
-        let third_height = height / 3;
-        let half_width = (width - to_print.len() as u16) / 2;
+        let to_print = format!(">>> {NAME} - v{VERSION}");
+        let third_height = height.saturating_div(4);
+        let half_width = (width.saturating_sub(to_print.len())) / 2;
 
         Terminal::move_cursor_to(Position {x: half_width, y: third_height})?;
         Terminal::print(&to_print)?;
