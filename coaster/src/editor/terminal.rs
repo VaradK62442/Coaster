@@ -28,6 +28,7 @@ pub struct Position {
     pub y: usize
 }
 
+/// Represents the Terminal.
 pub struct Terminal;
 
 impl Terminal {
@@ -57,6 +58,9 @@ impl Terminal {
         Ok(())
     }
 
+    /// Moves cursor to given Position
+    /// ### Arguments
+    /// * `position` - the `Position` to move the cursor to.
     pub fn move_cursor_to(position: Position) -> Result<(), Error> {
         Self::queue_command(MoveTo(position.x as u16, position.y as u16))?;
         Ok(())
@@ -77,6 +81,8 @@ impl Terminal {
         Ok(())
     }
 
+    /// Returns the current size of the terminal.
+    /// * A `Size` representing the terminal size.
     pub fn size() -> Result<Size, Error> {
         let (width, height) = size()?;
         let width = width as usize;
@@ -84,6 +90,7 @@ impl Terminal {
         Ok(Size { height, width })
     }
 
+    /// Flushes the output stream so that any bufferred contents reach their destination.
     pub fn execute() -> Result<(), Error> {
         stdout().flush()?;
         Ok(())

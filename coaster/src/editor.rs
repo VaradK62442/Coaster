@@ -84,6 +84,8 @@ impl Editor {
         Ok(())
     }
 
+    /// Prints the name and version of the editor in the middle of the terminal
+    /// by moving the cursor and printing NAME and VERSION, as above.
     fn draw_welcome_msg() -> Result<(), Error> {
         let Size {height, width} = Terminal::size()?;
         let to_print = format!(">>> {NAME} - v{VERSION}");
