@@ -85,7 +85,6 @@ impl Editor {
         Terminal::move_caret_to(Position::default())?;
         if self.should_quit {
             Terminal::clear_screen()?;
-            Terminal::print(">>> Exiting\r\n")?;
         } else {
             Self::draw_rows()?;
             Self::draw_welcome_msg()?;
