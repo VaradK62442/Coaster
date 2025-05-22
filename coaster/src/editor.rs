@@ -4,10 +4,10 @@ mod view;
 use crossterm::event::{
     read,
     Event,
-    Event::Key,
     KeyCode,
     KeyCode::Char,
     KeyEvent,
+    KeyEventKind,
     KeyModifiers
 };
 use terminal::{Terminal, Size, Position};
@@ -45,44 +45,71 @@ impl Editor {
             }
 
             let event = read()?;
-            self.evaluate_event(&event)?;
+            self.evaluate_event(event)?;
         }
 
         Ok(())
     }
 
-    fn evaluate_event(&mut self, event: &Event) -> Result<(), Error> {
-        let Size {height, width} = Terminal::size()?;
-        if let Key(KeyEvent {
-            code, modifiers, ..
-        }) = event {
-            match code {
-                Char('q') if *modifiers == KeyModifiers::CONTROL => {
-                    self.should_quit = true;
+    fn evaluate_event(&mut self, event: Event) -> Result<(), Error> {
+        match event {
+            Event::Key(KeyEvent {
+                code, kind: KeyEventKind::Press, modifiers, ..
+            }) => {
+                match (code, modifiers) {
+                    (Char('q'), KeyModifiers::CONTROL) => {
+                        self.should_quit = true;
+                    }
+                    (Char('h') | KeyCode::Left 
+                    | Char('l') | KeyCode::Right
+                    | Char('k') | KeyCode::Up
+                    | Char('j') | KeyCode::Down
+                    | KeyCode::Home | KeyCode::End
+                    | KeyCode::PageUp | KeyCode::PageDown, _) => {
+                        self.move_point(code)?;
+                    }
+                    _ => {}
                 }
-                Char('h') | KeyCode::Left => {
-                    self.location.x = self.location.x.saturating_sub(1);
-                }
-                Char('l') | KeyCode::Right => {
-                    self.location.x = min(width.saturating_sub(1), self.location.x.saturating_add(1));
-                }
-                Char('k') | KeyCode::Up => {
-                    self.location.y = self.location.y.saturating_sub(1);
-                }
-                Char('j') | KeyCode::Down => {
-                    self.location.y = min(height.saturating_sub(1), self.location.y.saturating_add(1));
-                }
-                KeyCode::Home => {self.location.x = 0;}
-                KeyCode::End => {self.location.x = width.saturating_sub(1);}
-                KeyCode::PageUp => {self.location.y = 0;}
-                KeyCode::PageDown => {self.location.y = height.saturating_sub(1);}
-                _ => ()
             }
+            Event::Resize(width_u16, height_u16) => {
+                let height = height_u16 as usize;
+                let width = width_u16 as usize;
+                self.view.resize(Size {
+                    height, width
+                })
+            }
+            _ => {}
         }
+
         Ok(())
     }
 
-    fn refresh_screen(&self) -> Result<(), Error> {
+    fn move_point(&mut self, code: KeyCode) -> Result<(), Error> {
+        let Size {height, width} = Terminal::size()?;
+        match code {
+            Char('h') | KeyCode::Left => {
+                self.location.x = self.location.x.saturating_sub(1);
+            }
+            Char('l') | KeyCode::Right => {
+                self.location.x = min(width.saturating_sub(1), self.location.x.saturating_add(1));
+            }
+            Char('k') | KeyCode::Up => {
+                self.location.y = self.location.y.saturating_sub(1);
+            }
+            Char('j') | KeyCode::Down => {
+                self.location.y = min(height.saturating_sub(1), self.location.y.saturating_add(1));
+            }
+            KeyCode::Home => {self.location.x = 0;}
+            KeyCode::End => {self.location.x = width.saturating_sub(1);}
+            KeyCode::PageUp => {self.location.y = 0;}
+            KeyCode::PageDown => {self.location.y = height.saturating_sub(1);}
+            _ => ()
+        }
+
+        Ok(())
+    }    
+
+    fn refresh_screen(&mut self) -> Result<(), Error> {
         Terminal::hide_caret()?;
         Terminal::move_caret_to(Position::default())?;
         if self.should_quit {
