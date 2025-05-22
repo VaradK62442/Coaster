@@ -1,3 +1,6 @@
+mod terminal;
+mod view;
+
 use crossterm::event::{
     read,
     Event,
@@ -7,13 +10,10 @@ use crossterm::event::{
     KeyEvent,
     KeyModifiers
 };
-mod terminal;
 use terminal::{Terminal, Size, Position};
+use view::View;
 use std::io::Error;
 use core::cmp::min;
-
-const NAME: &str = env!("CARGO_PKG_NAME");
-const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Copy, Clone, Default)]
 pub struct Location {
@@ -86,39 +86,11 @@ impl Editor {
         if self.should_quit {
             Terminal::clear_screen()?;
         } else {
-            Self::draw_rows()?;
-            Self::draw_welcome_msg()?;
+            View::render()?;
             Terminal::move_caret_to(Position {col: self.location.x, row: self.location.y})?;
         }
         Terminal::show_caret()?;
         Terminal::execute()?;
-        Ok(())
-    }
-
-    fn draw_rows() -> Result<(), Error> {
-        let Size {height, ..} = Terminal::size()?;
-        for current_row in 0..height {
-            Terminal::clear_line()?;
-            Terminal::print("~")?;
-            if current_row.saturating_add(1) < height {
-                Terminal::print("\r\n")?;
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Prints the name and version of the editor in the middle of the terminal
-    /// by moving the cursor and printing NAME and VERSION, as above.
-    fn draw_welcome_msg() -> Result<(), Error> {
-        let Size {height, width} = Terminal::size()?;
-        let to_print = format!(">>> {NAME} - v{VERSION}");
-        let third_height = height.saturating_div(4);
-        let half_width = (width.saturating_sub(to_print.len())) / 2;
-
-        Terminal::move_caret_to(Position {col: half_width, row: third_height})?;
-        Terminal::print(&to_print)?;
-
         Ok(())
     }
 }
