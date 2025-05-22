@@ -15,7 +15,7 @@ use crossterm::terminal::{
 use std::io::{stdout, Error, Write};
 
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 pub struct Size {
     pub height: usize,
     pub width: usize
