@@ -25,16 +25,16 @@ impl View {
         }
 
         for current_row in 0..height {
+            let mut default_string = "~ ".to_owned();
             if let Some(line) = self.buffer.lines.get(current_row) {
-                let truncated_line = if line.len() >= width {
+                let truncated_line = if line.len() >= width.saturating_sub(2) {
                     &line[0..width]
                 } else {
                     line
                 };
-                Self::render_line(current_row, truncated_line)?;
-            } else {
-                Self::render_line(current_row, "~ ")?;
+                default_string.push_str(truncated_line);
             }
+            Self::render_line(current_row, &default_string)?;
         }
         
         if self.buffer.is_empty() {
