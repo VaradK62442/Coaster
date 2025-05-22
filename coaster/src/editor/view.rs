@@ -9,7 +9,7 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Default)]
 pub struct View {
-    pub buffer: Buffer
+    buffer: Buffer
 }
 
 impl View {
@@ -17,18 +17,18 @@ impl View {
         let Size {height, ..} = Terminal::size()?;
         for current_row in 0..height {
             Terminal::clear_line()?;
+            Terminal::print("~ ")?;
             if let Some(line) = self.buffer.lines.get(current_row) {
                 Terminal::print(line)?;
-                Terminal::print("\r\n")?;
-                continue;
             }
-            Terminal::print("~")?;
             if current_row.saturating_add(1) < height {
                 Terminal::print("\r\n")?;
             }
         }
 
-        self.draw_welcome_msg()?;
+        if self.buffer.is_empty() {
+            self.draw_welcome_msg()?;
+        }
 
         Ok(())
     }
@@ -45,5 +45,11 @@ impl View {
         Terminal::print(&to_print)?;
 
         Ok(())
+    }
+
+    pub fn load(&mut self, filename: &str) {
+        if let Ok(buffer) = Buffer::load(filename) {
+            self.buffer = buffer;
+        }
     }
 }

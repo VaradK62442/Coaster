@@ -25,12 +25,13 @@ pub struct Location {
 pub struct Editor {
     should_quit: bool,
     location: Location,
-    view: View
+    pub view: View
 }
 
 impl Editor {
     pub fn run(&mut self) {
         Terminal::initialize().unwrap();
+        self.handle_args();
         let result = self.repl();
         Terminal::terminate().unwrap();
         result.unwrap();
@@ -94,4 +95,12 @@ impl Editor {
         Terminal::execute()?;
         Ok(())
     }
+
+    fn handle_args(&mut self) {
+        let args: Vec<String> = std::env::args().collect();
+        if let Some(filename) = args.get(1) {
+            self.view.load(filename);
+        }
+    }
+
 }
