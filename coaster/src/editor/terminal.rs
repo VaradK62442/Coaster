@@ -13,7 +13,6 @@ use crossterm::terminal::{
     ClearType
 };
 use std::io::{stdout, Error, Write};
-use core::fmt::Display;
 
 
 #[derive(Copy, Clone)]
@@ -73,7 +72,7 @@ impl Terminal {
         Ok(())
     }
 
-    pub fn print<T: Display>(string: T) -> Result<(), Error> {
+    pub fn print(string: &str) -> Result<(), Error> {
         Self::queue_command(Print(string))?;
         Ok(())
     }
