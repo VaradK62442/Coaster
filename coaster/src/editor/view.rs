@@ -6,6 +6,8 @@ use buffer::Buffer;
 
 const NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
+const DEFAULT_LINE: &str = "~";
+const LINE_PADDING: usize = 3;
 
 pub struct View {
     buffer: Buffer,
@@ -25,14 +27,17 @@ impl View {
         }
 
         for current_row in 0..height {
-            let mut default_string = "~ ".to_owned();
+            let mut default_string;
             if let Some(line) = self.buffer.lines.get(current_row) {
+                default_string = format!("{:width$} ", current_row.saturating_add(1), width=LINE_PADDING).to_owned();
                 let truncated_line = if line.len() >= width.saturating_sub(2) {
                     &line[0..width]
                 } else {
                     line
                 };
                 default_string.push_str(truncated_line);
+            } else {
+                default_string = format!("{:width$} ", DEFAULT_LINE, width=LINE_PADDING);
             }
             Self::render_line(current_row, &default_string)?;
         }
