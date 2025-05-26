@@ -1,7 +1,6 @@
 mod buffer;
 
-use std::io::Error;
-use super::terminal::{Terminal, Size, Position};
+use super::terminal::{Terminal, Size};
 use buffer::Buffer;
 
 const NAME: &str = env!("CARGO_PKG_NAME");
@@ -16,14 +15,14 @@ pub struct View {
 }
 
 impl View {
-    pub fn render(&mut self) -> Result<(), Error> {
+    pub fn render(&mut self) {
         if !self.needs_redrawn {
-            return Ok(());
+            return;
         }
 
         let Size {height, width} = self.size;
         if height == 0 || width == 0 {
-            return Ok(());
+            return;
         }
 
         for current_row in 0..height {
@@ -39,35 +38,30 @@ impl View {
             } else {
                 default_string = format!("{:width$} ", DEFAULT_LINE, width=LINE_PADDING);
             }
-            Self::render_line(current_row, &default_string)?;
+            Self::render_line(current_row, &default_string);
         }
         
         if self.buffer.is_empty() {
-            self.draw_welcome_msg(self.size)?;
+            self.draw_welcome_msg(self.size);
         }
         
         self.needs_redrawn = false;
-        
-        Ok(())
     }
     
-    fn render_line(at: usize, line_text: &str) -> Result<(), Error> {
-        Terminal::move_caret_to(Position {col: 0, row: at})?;
-        Terminal::clear_line()?;
-        Terminal::print(line_text)?;
-
-        Ok(())
+    fn render_line(at: usize, line_text: &str) {
+        let result = Terminal::print_row(at, line_text);
+        debug_assert!(result.is_ok(), "Failed to render line");
     }
     
     /// Prints the name and version of the editor in the middle of the terminal
     /// by moving the cursor and printing NAME and VERSION, as above.
-    fn draw_welcome_msg(&self, size: Size) -> Result<(), Error> {
+    fn draw_welcome_msg(&self, size: Size) {
         let mut welcome_msg;
         let Size {height, width} = size;
         
         let to_print = format!(">>> {NAME} - v{VERSION}");
         let third_height = height.saturating_div(4);
-        let half_width = (width.saturating_sub(to_print.len())) / 2;
+        let half_width = (width.saturating_sub(to_print.len()).saturating_sub(1)) / 2;
 
         let len = to_print.len();
         
@@ -76,14 +70,12 @@ impl View {
         } else if width <= len {
             welcome_msg = "~".to_string();
         } else {
-            welcome_msg = to_print;
+            welcome_msg = format!("~{}{}", " ".repeat(half_width), to_print);
             welcome_msg.truncate(width);
         }
 
-        Terminal::move_caret_to(Position {col: half_width, row: third_height})?;
-        Terminal::print(&welcome_msg)?;
-
-        Ok(())
+        let result = Terminal::print_row(third_height, &welcome_msg);
+        debug_assert!(result.is_ok(), "Failed to render welcome message");
     }
 
     pub fn load(&mut self, filename: &str) {

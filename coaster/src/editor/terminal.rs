@@ -10,7 +10,9 @@ use crossterm::terminal::{
     enable_raw_mode,
     size,
     Clear,
-    ClearType
+    ClearType,
+    EnterAlternateScreen,
+    LeaveAlternateScreen
 };
 use std::io::{stdout, Error, Write};
 
@@ -32,6 +34,8 @@ pub struct Terminal;
 
 impl Terminal {
     pub fn terminate() -> Result<(), Error> {
+        Self::leave_alternate_screen()?;
+        Self::show_caret()?;
         Self::execute()?;
         disable_raw_mode()?;
         Ok(())
@@ -39,6 +43,7 @@ impl Terminal {
     
     pub fn initialize() -> Result<(), Error> {
         enable_raw_mode()?;
+        Self::enter_alternate_screen()?;
         Self::clear_screen()?;
         Self::execute()?;
         Ok(())
@@ -77,6 +82,13 @@ impl Terminal {
         Ok(())
     }
 
+    pub fn print_row(row: usize, line_text: &str) -> Result<(), Error> {
+        Self::move_caret_to(Position {row, col: 0})?;
+        Self::clear_line()?;
+        Self::print(line_text)?;
+        Ok(())
+    }
+
     /// Returns the current size of the terminal.
     /// * A `Size` representing the terminal size.
     pub fn size() -> Result<Size, Error> {
@@ -94,6 +106,16 @@ impl Terminal {
 
     fn queue_command<T: Command>(command: T) -> Result<(), Error> {
         queue!(stdout(), command)?;
+        Ok(())
+    }
+
+    pub fn enter_alternate_screen() -> Result<(), Error> {
+        Self::queue_command(EnterAlternateScreen)?;
+        Ok(())
+    }
+
+    pub fn leave_alternate_screen() -> Result<(), Error> {
+        Self::queue_command(LeaveAlternateScreen)?;
         Ok(())
     }
 }
