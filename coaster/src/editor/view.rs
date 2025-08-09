@@ -2,7 +2,9 @@ mod buffer;
 mod location;
 mod line;
 
-use std::cmp::max;
+use std::cmp::{
+    max, min
+};
 
 use super::{
     editorcommand::{Direction, EditorCommand},
@@ -74,35 +76,73 @@ impl View {
 
     fn move_text_location(&mut self, direction: &Direction) {
         let Location { mut x, mut y } = self.location;
-        let Size { height, width } = self.size;
         match direction {
             Direction::Up => {
                 y = y.saturating_sub(1);
+                x = max(
+                    min(
+                        self.get_line_length(-1).saturating_add(2),
+                        x
+                    ),
+                    self.line_padding + 1
+                );
             }
             Direction::Down => {
-                y = y.saturating_add(1);
+                y = min(self.buffer.line_number(), y.saturating_add(1));
+                x = max(min(
+                        self.get_line_length(1).saturating_add(2),
+                        x
+                    ),
+                    self.line_padding + 1
+                );
             }
             Direction::Left => {
-                x = max(self.line_padding + 1, x.saturating_sub(1));
+                if x.saturating_sub(1) < self.line_padding + 1 && y > 0 {
+                    y = y.saturating_sub(1);
+                    x = self.get_line_length(-1).saturating_add(2);
+                } else {
+                    x = max(self.line_padding + 1, x.saturating_sub(1));
+                }
             }
             Direction::Right => {
-                x = x.saturating_add(1);
+                if x.saturating_add(1) > self.get_line_length(0).saturating_add(2) && y < self.buffer.line_number() {
+                    y = min(self.buffer.line_number(), y.saturating_add(1));
+                    x = self.line_padding + 1;
+                } else {
+                    x = min(
+                        x.saturating_add(1),
+                        self.get_line_length(0).saturating_add(2)
+                    );
+                }
             }
             Direction::PageUp => {
                 y = 0;
             }
             Direction::PageDown => {
-                y = height.saturating_sub(1);
+                y = self.buffer.line_number();
             }
             Direction::Home => {
                 x = self.line_padding + 1;
             }
             Direction::End => {
-                x = width.saturating_sub(1);
+                x = self.get_line_length(0).saturating_add(2);
             }
         }
         self.location = Location { x, y };
         self.scroll_location_into_view();
+    }
+
+    fn get_line_length(&self, offset: isize) -> usize {
+        let mut total_offset: usize = self.location.y;
+        if offset > 0 {
+            total_offset = total_offset.saturating_add(offset as usize);
+        } else {
+            total_offset = total_offset.saturating_sub((-offset) as usize);
+        }
+        total_offset = total_offset.saturating_add(self.scroll_offset.y);
+        self.buffer.get_line_length(
+            total_offset
+        )
     }
 
     fn scroll_location_into_view(&mut self) {
