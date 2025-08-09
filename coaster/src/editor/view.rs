@@ -95,7 +95,7 @@ impl View {
                 y = height.saturating_sub(1);
             }
             Direction::Home => {
-                x = 0;
+                x = self.line_padding + 1;
             }
             Direction::End => {
                 x = width.saturating_sub(1);

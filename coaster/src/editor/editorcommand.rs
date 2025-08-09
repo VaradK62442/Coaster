@@ -1,6 +1,6 @@
 use crossterm::event::{
     Event,
-    KeyCode,
+    KeyCode::{self, Char},
     KeyEvent,
     KeyModifiers
 };
@@ -36,10 +36,10 @@ impl TryFrom<Event> for EditorCommand {
                 (KeyCode::PageDown, _) => Ok(Self::Move(Direction::PageDown)),
                 (KeyCode::Home, _) => Ok(Self::Move(Direction::Home)),
                 (KeyCode::End, _) => Ok(Self::Move(Direction::End)),
-                (KeyCode::Up, _) => Ok(Self::Move(Direction::Up)),
-                (KeyCode::Left, _) => Ok(Self::Move(Direction::Left)),
-                (KeyCode::Right, _) => Ok(Self::Move(Direction::Right)),
-                (KeyCode::Down, _) => Ok(Self::Move(Direction::Down)),
+                (KeyCode::Up | Char('k'), _) => Ok(Self::Move(Direction::Up)),
+                (KeyCode::Left | Char('h'), _) => Ok(Self::Move(Direction::Left)),
+                (KeyCode::Right | Char('l'), _) => Ok(Self::Move(Direction::Right)),
+                (KeyCode::Down | Char('j'), _) => Ok(Self::Move(Direction::Down)),
                 _ => Err(format!("Unsupported key code: {code:?}"))
             }
             Event::Resize(width_u16, height_u16) => {
