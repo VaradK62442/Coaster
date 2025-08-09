@@ -10,9 +10,7 @@ use crossterm::event::{
     KeyModifiers
 };
 use terminal::{Terminal, Size, Position};
-use view::{
-    View, LINE_PADDING
-};
+use view::View;
 use std::{
     env,
     io::Error,
@@ -25,19 +23,10 @@ use core::cmp::{
     min, max
 };
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Default, Clone)]
 pub struct Location {
     x: usize,
     y: usize,
-}
-
-impl Default for Location {
-    fn default() -> Self {
-        Self {
-            x: LINE_PADDING + 1,
-            y: 0,
-        }
-    }
 }
 
 pub struct Editor {
@@ -61,7 +50,7 @@ impl Editor {
         }
         Ok(Self {
             should_quit: false,
-            location: Location::default(),
+            location: Location { x: view.line_padding + 1, y: 0},
             view
         })
     }
@@ -120,7 +109,7 @@ impl Editor {
         let Size {height, width} = Terminal::size().unwrap_or_default();
         match code {
             Char('h') | KeyCode::Left => {
-                self.location.x = max(LINE_PADDING + 1, self.location.x.saturating_sub(1));
+                self.location.x = max(self.view.line_padding + 1, self.location.x.saturating_sub(1));
             }
             Char('l') | KeyCode::Right => {
                 self.location.x = min(width.saturating_sub(1), self.location.x.saturating_add(1));
@@ -131,7 +120,7 @@ impl Editor {
             Char('j') | KeyCode::Down => {
                 self.location.y = min(height.saturating_sub(1), self.location.y.saturating_add(1));
             }
-            KeyCode::Home => {self.location.x = LINE_PADDING + 1;}
+            KeyCode::Home => {self.location.x = self.view.line_padding + 1;}
             KeyCode::End => {self.location.x = width.saturating_sub(1);}
             KeyCode::PageUp => {self.location.y = 0;}
             KeyCode::PageDown => {self.location.y = height.saturating_sub(1);}

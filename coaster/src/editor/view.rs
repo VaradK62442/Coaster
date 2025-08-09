@@ -6,12 +6,12 @@ use buffer::Buffer;
 const NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const DEFAULT_LINE: &str = "~";
-pub const LINE_PADDING: usize = 3;
 
 pub struct View {
     buffer: Buffer,
     pub needs_redrawn: bool,
-    size: Size
+    size: Size,
+    pub line_padding: usize
 }
 
 impl View {
@@ -28,7 +28,7 @@ impl View {
         for current_row in 0..height {
             let mut default_string;
             if let Some(line) = self.buffer.lines.get(current_row) {
-                default_string = format!("{:width$} ", current_row.saturating_add(1), width=LINE_PADDING).to_owned();
+                default_string = format!("{:width$} ", current_row.saturating_add(1), width=self.line_padding).to_owned();
                 let truncated_line = if line.len() >= width.saturating_sub(2) {
                     &line[0..width]
                 } else {
@@ -36,7 +36,7 @@ impl View {
                 };
                 default_string.push_str(truncated_line);
             } else {
-                default_string = format!("{DEFAULT_LINE:LINE_PADDING$} ");
+                default_string = format!("{DEFAULT_LINE:width$} ", width=self.line_padding);
             }
             Self::render_line(current_row, &default_string);
         }
@@ -82,6 +82,7 @@ impl View {
         if let Ok(buffer) = Buffer::load(filename) {
             self.buffer = buffer;
             self.needs_redrawn = true;
+            self.line_padding = self.buffer.line_number().to_string().len();
         }
     }
 
@@ -96,7 +97,8 @@ impl Default for View {
         Self {
             buffer: Buffer::default(),
             needs_redrawn: true,
-            size: Terminal::size().unwrap_or_default()
+            size: Terminal::size().unwrap_or_default(),
+            line_padding: 1
         }
     }
 }

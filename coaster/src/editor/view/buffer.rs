@@ -20,4 +20,8 @@ impl Buffer {
     pub fn is_empty(&self) -> bool {
         self.lines.is_empty()
     }
+
+    pub fn line_number(&self) -> usize {
+        self.lines.len()
+    }
 }
