@@ -28,6 +28,6 @@ impl Buffer {
     }
 
     pub fn get_line_length(&self, idx: usize) -> usize {
-        self.lines.get(idx).map_or(0, Line::len)
+        self.lines.get(idx).map_or(0, |line| line.len())
     }
 }
