@@ -41,7 +41,11 @@ impl View {
             if let Some(line) = self.buffer.lines.get(current_row.saturating_add(top)) {
                 let left = self.scroll_offset.x;
                 let right = self.scroll_offset.x.saturating_add(width);
-                default_string = format!("{:width$} ", current_row.saturating_add(1), width=self.line_padding).to_owned();
+                default_string = format!(
+                    "{:width$} ",
+                    current_row.saturating_add(self.scroll_offset.y).saturating_add(1),
+                    width=self.line_padding
+                ).to_owned();
                 default_string.push_str(&line.get(left..right));
             } else {
                 default_string = format!("{DEFAULT_LINE:width$} ", width=self.line_padding);
