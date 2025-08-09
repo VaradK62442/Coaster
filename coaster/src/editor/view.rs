@@ -6,7 +6,7 @@ use buffer::Buffer;
 const NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const DEFAULT_LINE: &str = "~";
-const LINE_PADDING: usize = 3;
+pub const LINE_PADDING: usize = 3;
 
 pub struct View {
     buffer: Buffer,
@@ -36,7 +36,7 @@ impl View {
                 };
                 default_string.push_str(truncated_line);
             } else {
-                default_string = format!("{:width$} ", DEFAULT_LINE, width=LINE_PADDING);
+                default_string = format!("{DEFAULT_LINE:LINE_PADDING$} ");
             }
             Self::render_line(current_row, &default_string);
         }
