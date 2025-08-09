@@ -89,7 +89,8 @@ impl View {
             }
             Direction::Down => {
                 y = min(self.buffer.line_number(), y.saturating_add(1));
-                x = max(min(
+                x = max(
+                    min(
                         self.get_line_length(1).saturating_add(2),
                         x
                     ),
@@ -133,13 +134,12 @@ impl View {
     }
 
     fn get_line_length(&self, offset: isize) -> usize {
-        let mut total_offset: usize = self.location.y;
+        let mut total_offset: usize = self.location.y.saturating_add(self.scroll_offset.y);
         if offset > 0 {
             total_offset = total_offset.saturating_add(offset as usize);
         } else {
             total_offset = total_offset.saturating_sub((-offset) as usize);
         }
-        total_offset = total_offset.saturating_add(self.scroll_offset.y);
         self.buffer.get_line_length(
             total_offset
         )
