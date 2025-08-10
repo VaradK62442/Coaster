@@ -92,7 +92,7 @@ impl View {
     fn scroll_horizontally(&mut self, to: usize) {
         let Size {width, ..} = self.size;
         let offset_changed = if to < self.scroll_offset.col {
-            self.scroll_offset.col = to;
+            self.scroll_offset.col = to.saturating_sub(self.line_padding + 1);
             true
         } else if to >= self.scroll_offset.col.saturating_add(width) {
             self.scroll_offset.col = to.saturating_sub(width).saturating_add(1);
