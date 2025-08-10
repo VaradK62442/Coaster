@@ -23,11 +23,7 @@ impl Buffer {
         self.lines.is_empty()
     }
 
-    pub fn line_number(&self) -> usize {
+    pub fn height(&self) -> usize {
         self.lines.len()
-    }
-
-    pub fn get_line_length(&self, idx: usize) -> usize {
-        self.lines.get(idx).map_or(0, |line| line.len())
     }
 }
