@@ -1,8 +1,7 @@
 use crossterm::event::{
     Event,
     KeyCode::{self, Char},
-    KeyEvent,
-    KeyModifiers
+    KeyEvent, KeyModifiers,
 };
 use std::convert::TryFrom;
 
@@ -16,12 +15,12 @@ pub enum Direction {
     Up,
     Left,
     Right,
-    Down
+    Down,
 }
 pub enum EditorCommand {
     Move(Direction),
     Resize(Size),
-    Quit
+    Quit,
 }
 
 impl TryFrom<Event> for EditorCommand {
@@ -40,8 +39,8 @@ impl TryFrom<Event> for EditorCommand {
                 (KeyCode::Left | Char('h'), _) => Ok(Self::Move(Direction::Left)),
                 (KeyCode::Right | Char('l'), _) => Ok(Self::Move(Direction::Right)),
                 (KeyCode::Down | Char('j'), _) => Ok(Self::Move(Direction::Down)),
-                _ => Err(format!("Unsupported key code: {code:?}"))
-            }
+                _ => Err(format!("Unsupported key code: {code:?}")),
+            },
             Event::Resize(width_u16, height_u16) => {
                 #[allow(clippy::as_conversions)]
                 let height = height_u16 as usize;
@@ -50,7 +49,7 @@ impl TryFrom<Event> for EditorCommand {
 
                 Ok(Self::Resize(Size { height, width }))
             }
-            _ => Err(format!("Unsupported event: {event:?}"))
+            _ => Err(format!("Unsupported event: {event:?}")),
         }
     }
 }

@@ -2,27 +2,19 @@ mod editorcommand;
 mod terminal;
 mod view;
 
-use crossterm::event::{
-    read,
-    Event,
-    KeyEvent,
-    KeyEventKind
-};
-use terminal::Terminal;
-use view::View;
+use crossterm::event::{Event, KeyEvent, KeyEventKind, read};
+use editorcommand::EditorCommand;
 use std::{
     env,
     io::Error,
-    panic::{
-        set_hook,
-        take_hook
-    }
+    panic::{set_hook, take_hook},
 };
-use editorcommand::EditorCommand;
+use terminal::Terminal;
+use view::View;
 
 pub struct Editor {
     should_quit: bool,
-    pub view: View
+    pub view: View,
 }
 
 impl Editor {
@@ -40,10 +32,10 @@ impl Editor {
         }
         Ok(Self {
             should_quit: false,
-            view
+            view,
         })
     }
-    
+
     pub fn run(&mut self) {
         loop {
             self.refresh_screen();
@@ -65,11 +57,9 @@ impl Editor {
 
     fn evaluate_event(&mut self, event: Event) {
         let should_process = match &event {
-            Event::Key(KeyEvent {
-                kind, ..
-            }) => kind == &KeyEventKind::Press,
+            Event::Key(KeyEvent { kind, .. }) => kind == &KeyEventKind::Press,
             Event::Resize(_, _) => true,
-            _ => false
+            _ => false,
         };
 
         if should_process {
@@ -98,7 +88,6 @@ impl Editor {
         let _ = Terminal::show_caret();
         let _ = Terminal::execute();
     }
-
 }
 
 impl Drop for Editor {

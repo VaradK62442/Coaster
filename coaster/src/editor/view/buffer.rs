@@ -1,11 +1,11 @@
-use std::io::Error;
 use std::fs::read_to_string;
+use std::io::Error;
 
 use super::line::Line;
 
 #[derive(Default)]
 pub struct Buffer {
-    pub lines: Vec<Line>
+    pub lines: Vec<Line>,
 }
 
 impl Buffer {
@@ -16,7 +16,7 @@ impl Buffer {
             lines.push(Line::from(value));
         }
 
-        Ok(Self {lines})
+        Ok(Self { lines })
     }
 
     pub fn is_empty(&self) -> bool {

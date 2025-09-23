@@ -4,14 +4,15 @@ use unicode_width::UnicodeWidthStr;
 
 #[derive(Copy, Clone)]
 enum GraphemeWidth {
-    Half, Full
+    Half,
+    Full,
 }
 
 impl GraphemeWidth {
     const fn saturating_add(self, other: usize) -> usize {
         match self {
             Self::Half => other.saturating_add(1),
-            Self::Full => other.saturating_add(2)
+            Self::Full => other.saturating_add(2),
         }
     }
 }
@@ -19,11 +20,11 @@ impl GraphemeWidth {
 struct TextFragment {
     grapheme: String,
     rendered_width: GraphemeWidth,
-    replacemanet: Option<char>
+    replacemanet: Option<char>,
 }
 
 pub struct Line {
-    fragments: Vec<TextFragment>
+    fragments: Vec<TextFragment>,
 }
 
 impl Line {
@@ -31,24 +32,23 @@ impl Line {
         let fragments = line_str
             .graphemes(true)
             .map(|grapheme| {
-                let (replacement, rendered_width) = Self::replacement_character(
-                    grapheme
-                ).map_or_else(
-                    || {
-                        let unicode_width = grapheme.width();
-                        let rendered_width = match unicode_width {
-                            0 | 1 => GraphemeWidth::Half,
-                            _ => GraphemeWidth::Full
-                        };
-                        (None, rendered_width)
-                    },
-                    |replacement| (Some(replacement), GraphemeWidth::Half),
-                );
+                let (replacement, rendered_width) = Self::replacement_character(grapheme)
+                    .map_or_else(
+                        || {
+                            let unicode_width = grapheme.width();
+                            let rendered_width = match unicode_width {
+                                0 | 1 => GraphemeWidth::Half,
+                                _ => GraphemeWidth::Full,
+                            };
+                            (None, rendered_width)
+                        },
+                        |replacement| (Some(replacement), GraphemeWidth::Half),
+                    );
 
                 TextFragment {
                     grapheme: grapheme.to_string(),
                     rendered_width: rendered_width,
-                    replacemanet: replacement
+                    replacemanet: replacement,
                 }
             })
             .collect();
@@ -107,11 +107,13 @@ impl Line {
     }
 
     pub fn width_until(&self, grapheme_index: usize) -> usize {
-        self.fragments.iter().take(
-            grapheme_index
-        ).map(|fragment| match fragment.rendered_width {
-            GraphemeWidth::Half => 1,
-            GraphemeWidth::Full => 2
-        }).sum()
+        self.fragments
+            .iter()
+            .take(grapheme_index)
+            .map(|fragment| match fragment.rendered_width {
+                GraphemeWidth::Half => 1,
+                GraphemeWidth::Full => 2,
+            })
+            .sum()
     }
 }

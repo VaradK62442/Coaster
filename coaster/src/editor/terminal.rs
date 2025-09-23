@@ -1,39 +1,29 @@
-use crossterm::cursor::{
-    MoveTo,
-    Hide,
-    Show
-};
-use crossterm::{queue, Command};
+use crossterm::cursor::{Hide, MoveTo, Show};
 use crossterm::style::Print;
 use crossterm::terminal::{
-    disable_raw_mode,
-    enable_raw_mode,
-    size,
-    Clear,
-    ClearType,
-    EnterAlternateScreen,
-    LeaveAlternateScreen
+    Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode,
+    enable_raw_mode, size,
 };
-use std::io::{stdout, Error, Write};
-
+use crossterm::{Command, queue};
+use std::io::{Error, Write, stdout};
 
 #[derive(Copy, Clone, Default)]
 pub struct Size {
     pub height: usize,
-    pub width: usize
+    pub width: usize,
 }
 
 #[derive(Copy, Clone, Default)]
 pub struct Position {
     pub col: usize,
-    pub row: usize
+    pub row: usize,
 }
 
 impl Position {
     pub const fn saturating_sub(self, other: Self) -> Self {
         Self {
             row: self.row.saturating_sub(other.row),
-            col: self.col.saturating_sub(other.col)
+            col: self.col.saturating_sub(other.col),
         }
     }
 }
@@ -49,7 +39,7 @@ impl Terminal {
         disable_raw_mode()?;
         Ok(())
     }
-    
+
     pub fn initialize() -> Result<(), Error> {
         enable_raw_mode()?;
         Self::enter_alternate_screen()?;
@@ -92,7 +82,7 @@ impl Terminal {
     }
 
     pub fn print_row(row: usize, line_text: &str) -> Result<(), Error> {
-        Self::move_caret_to(Position {row, col: 0})?;
+        Self::move_caret_to(Position { row, col: 0 })?;
         Self::clear_line()?;
         Self::print(line_text)?;
         Ok(())

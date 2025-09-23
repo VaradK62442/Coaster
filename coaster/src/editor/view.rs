@@ -1,16 +1,14 @@
 mod buffer;
 mod line;
 
-use std::cmp::{
-    max, min
-};
+use std::cmp::{max, min};
 
+use self::line::Line;
 use super::{
     editorcommand::{Direction, EditorCommand},
-    terminal::{Position, Terminal, Size},
+    terminal::{Position, Size, Terminal},
 };
 use buffer::Buffer;
-use self::line::Line;
 
 const NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -19,7 +17,7 @@ const DEFAULT_LINE: &str = "~";
 #[derive(Copy, Clone, Default)]
 pub struct Location {
     pub grapheme_index: usize,
-    pub line_index: usize
+    pub line_index: usize,
 }
 
 pub struct View {
@@ -37,7 +35,7 @@ impl View {
             return;
         }
 
-        let Size {height, width} = self.size;
+        let Size { height, width } = self.size;
         if height == 0 || width == 0 {
             return;
         }
@@ -50,20 +48,23 @@ impl View {
                 let right = self.scroll_offset.col.saturating_add(width);
                 default_string = format!(
                     "{:width$} ",
-                    current_row.saturating_add(self.scroll_offset.row).saturating_add(1),
-                    width=self.line_padding
-                ).to_owned();
+                    current_row
+                        .saturating_add(self.scroll_offset.row)
+                        .saturating_add(1),
+                    width = self.line_padding
+                )
+                .to_owned();
                 default_string.push_str(&line.get_visible_graphemes(left..right));
             } else {
-                default_string = format!("{DEFAULT_LINE:width$} ", width=self.line_padding);
+                default_string = format!("{DEFAULT_LINE:width$} ", width = self.line_padding);
             }
             Self::render_line(current_row, &default_string);
         }
-        
+
         if self.buffer.is_empty() {
             self.draw_welcome_msg(self.size);
         }
-        
+
         self.needs_redrawn = false;
     }
 
@@ -76,7 +77,7 @@ impl View {
     }
 
     fn scroll_vertically(&mut self, to: usize) {
-        let Size {height, ..} = self.size;
+        let Size { height, .. } = self.size;
         let offset_changed = if to < self.scroll_offset.row {
             self.scroll_offset.row = to;
             true
@@ -90,7 +91,7 @@ impl View {
     }
 
     fn scroll_horizontally(&mut self, to: usize) {
-        let Size {width, ..} = self.size;
+        let Size { width, .. } = self.size;
         let offset_changed = if to < self.scroll_offset.col {
             self.scroll_offset.col = to.saturating_sub(self.line_padding + 1);
             true
@@ -110,18 +111,24 @@ impl View {
     }
 
     pub fn caret_position(&self) -> Position {
-        self.text_location_to_position().saturating_sub(self.scroll_offset)
+        self.text_location_to_position()
+            .saturating_sub(self.scroll_offset)
     }
 
     fn text_location_to_position(&self) -> Position {
         Position {
-            col: self.buffer.lines.get(
-                self.text_location.line_index
-            ).map_or(0, |line| {
-                line.width_until(
-                    self.text_location.grapheme_index.saturating_sub(self.line_padding + 1)
-                )
-            }).saturating_add(self.line_padding + 1),
+            col: self
+                .buffer
+                .lines
+                .get(self.text_location.line_index)
+                .map_or(0, |line| {
+                    line.width_until(
+                        self.text_location
+                            .grapheme_index
+                            .saturating_sub(self.line_padding + 1),
+                    )
+                })
+                .saturating_add(self.line_padding + 1),
             row: self.text_location.line_index,
         }
     }
@@ -162,9 +169,11 @@ impl View {
     }
 
     fn move_right(&mut self) {
-        let line_width = self.buffer.lines.get(
-            self.text_location.line_index
-        ).map_or(0, Line::grapheme_count);
+        let line_width = self
+            .buffer
+            .lines
+            .get(self.text_location.line_index)
+            .map_or(0, Line::grapheme_count);
         if self.text_location.grapheme_index < line_width.saturating_add(self.line_padding + 1) {
             self.text_location.grapheme_index += 1;
         } else {
@@ -178,49 +187,51 @@ impl View {
     }
 
     fn move_to_end_of_line(&mut self) {
-        self.text_location.grapheme_index = self.buffer.lines.get(
-            self.text_location.line_index
-        ).map_or(0, Line::grapheme_count).saturating_add(self.line_padding + 1);
+        self.text_location.grapheme_index = self
+            .buffer
+            .lines
+            .get(self.text_location.line_index)
+            .map_or(0, Line::grapheme_count)
+            .saturating_add(self.line_padding + 1);
     }
 
     fn snap_to_valid_grapheme(&mut self) {
-        self.text_location.grapheme_index = self.buffer.lines.get(
-            self.text_location.line_index
-        ).map_or(0, |line| {
-            max(
-                min(
-                    line.grapheme_count().saturating_add(self.line_padding + 1),
-                    self.text_location.grapheme_index
-                ),
-                self.line_padding + 1
-            )
-        })
+        self.text_location.grapheme_index = self
+            .buffer
+            .lines
+            .get(self.text_location.line_index)
+            .map_or(0, |line| {
+                max(
+                    min(
+                        line.grapheme_count().saturating_add(self.line_padding + 1),
+                        self.text_location.grapheme_index,
+                    ),
+                    self.line_padding + 1,
+                )
+            })
     }
 
     fn snap_to_valid_line(&mut self) {
-        self.text_location.line_index = min(
-            self.text_location.line_index,
-            self.buffer.height()
-        );
+        self.text_location.line_index = min(self.text_location.line_index, self.buffer.height());
     }
-    
+
     fn render_line(at: usize, line_text: &str) {
         let result = Terminal::print_row(at, line_text);
         debug_assert!(result.is_ok(), "Failed to render line");
     }
-    
+
     /// Prints the name and version of the editor in the middle of the terminal
     /// by moving the cursor and printing NAME and VERSION, as above.
     fn draw_welcome_msg(&self, size: Size) {
         let mut welcome_msg;
-        let Size {height, width} = size;
-        
+        let Size { height, width } = size;
+
         let to_print = format!(">>> {NAME} - v{VERSION}");
         let third_height = height.saturating_div(4);
         let half_width = (width.saturating_sub(to_print.len()).saturating_sub(1)) / 2;
 
         let len = to_print.len();
-        
+
         if width == 0 {
             welcome_msg = String::from(" ");
         } else if width <= len {
@@ -239,7 +250,10 @@ impl View {
             self.buffer = buffer;
             self.needs_redrawn = true;
             self.line_padding = self.buffer.height().to_string().len();
-            self.text_location = Location { grapheme_index: self.line_padding + 1, line_index: 0 };
+            self.text_location = Location {
+                grapheme_index: self.line_padding + 1,
+                line_index: 0,
+            };
         }
     }
 
@@ -257,8 +271,11 @@ impl Default for View {
             needs_redrawn: true,
             size: Terminal::size().unwrap_or_default(),
             line_padding: 1,
-            text_location: Location { grapheme_index: 2, line_index: 0 },
-            scroll_offset: Position::default()
+            text_location: Location {
+                grapheme_index: 2,
+                line_index: 0,
+            },
+            scroll_offset: Position::default(),
         }
     }
 }
