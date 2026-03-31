@@ -1,3 +1,5 @@
+use super::editorcommand::Mode;
+use crossterm::cursor::SetCursorStyle::*;
 use crossterm::cursor::{Hide, MoveTo, Show};
 use crossterm::style::Print;
 use crossterm::terminal::{
@@ -73,6 +75,15 @@ impl Terminal {
 
     pub fn show_caret() -> Result<(), Error> {
         Self::queue_command(Show)?;
+        Ok(())
+    }
+
+    pub fn set_caret_style(mode: Mode) -> Result<(), Error> {
+        let style = match mode {
+            Mode::Normal => BlinkingBlock,
+            Mode::Insert => BlinkingUnderScore,
+        };
+        Self::queue_command(style)?;
         Ok(())
     }
 

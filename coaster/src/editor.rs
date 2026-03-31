@@ -3,7 +3,7 @@ mod terminal;
 mod view;
 
 use crossterm::event::{Event, KeyEvent, KeyEventKind, read};
-use editorcommand::EditorCommand;
+use editorcommand::{EditorCommand, Mode};
 use std::{
     env,
     io::Error,
@@ -63,15 +63,12 @@ impl Editor {
         };
 
         if should_process {
-            match EditorCommand::try_from(event) {
-                Ok(command) => {
-                    if matches!(command, EditorCommand::Quit) {
-                        self.should_quit = true;
-                    } else {
-                        self.view.handle_command(command);
-                    }
+            if let Ok(command) = EditorCommand::try_from((event, self.view.mode.clone())) {
+                if matches!(command, EditorCommand::Quit) {
+                    self.should_quit = true;
+                } else {
+                    self.view.handle_command(command);
                 }
-                Err(_) => {}
             }
         } else {
             #[cfg(debug_assertions)]
@@ -85,6 +82,7 @@ impl Editor {
         let _ = Terminal::hide_caret();
         self.view.render();
         let _ = Terminal::move_caret_to(self.view.caret_position());
+        let _ = Terminal::set_caret_style(self.view.mode.clone());
         let _ = Terminal::show_caret();
         let _ = Terminal::execute();
     }

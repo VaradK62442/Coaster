@@ -5,7 +5,7 @@ use std::cmp::{max, min};
 
 use self::line::Line;
 use super::{
-    editorcommand::{Direction, EditorCommand},
+    editorcommand::{Direction, EditorCommand, Mode},
     terminal::{Position, Size, Terminal},
 };
 use buffer::Buffer;
@@ -27,6 +27,7 @@ pub struct View {
     line_padding: usize,
     text_location: Location,
     scroll_offset: Position,
+    pub mode: Mode,
 }
 
 impl View {
@@ -40,12 +41,19 @@ impl View {
             return;
         }
 
+        let content_rows = if height == 1 {
+            0
+        } else {
+            height.saturating_sub(1)
+        };
+        let visible_width = width.saturating_sub(self.line_padding + 1);
+
         let top = self.scroll_offset.row;
-        for current_row in 0..height {
+        for current_row in 0..content_rows {
             let mut default_string;
             if let Some(line) = self.buffer.lines.get(current_row.saturating_add(top)) {
-                let left = self.scroll_offset.col;
-                let right = self.scroll_offset.col.saturating_add(width);
+                let left_text = self.scroll_offset.col;
+                let right_text = left_text.saturating_add(visible_width);
                 default_string = format!(
                     "{:width$} ",
                     current_row
@@ -54,17 +62,24 @@ impl View {
                     width = self.line_padding
                 )
                 .to_owned();
-                default_string.push_str(&line.get_visible_graphemes(left..right));
+                default_string.push_str(&line.get_visible_graphemes(left_text..right_text));
             } else {
                 default_string = format!("{DEFAULT_LINE:width$} ", width = self.line_padding);
+                if visible_width > 0 {
+                    default_string.push_str(&" ".repeat(visible_width));
+                }
+            }
+
+            if default_string.len() > width {
+                default_string.truncate(width);
             }
             Self::render_line(current_row, &default_string);
         }
 
-        if self.buffer.is_empty() {
+        if self.buffer.is_empty() && content_rows > 0 {
             self.draw_welcome_msg(self.size);
         }
-
+        self.draw_status_bar();
         self.needs_redrawn = false;
     }
 
@@ -72,36 +87,47 @@ impl View {
         match command {
             EditorCommand::Resize(size) => self.resize(size),
             EditorCommand::Move(direction) => self.move_text_location(&direction),
+            EditorCommand::Insert(character) => self.insert_char(character),
             EditorCommand::Quit => {}
+            EditorCommand::ChangeMode(mode) => {
+                self.mode = mode;
+                self.needs_redrawn = true;
+            }
         }
     }
 
     fn scroll_vertically(&mut self, to: usize) {
-        let Size { height, .. } = self.size;
+        let content_height = self.size.height.saturating_sub(1);
         let offset_changed = if to < self.scroll_offset.row {
             self.scroll_offset.row = to;
             true
-        } else if to >= self.scroll_offset.row.saturating_add(height) {
-            self.scroll_offset.row = to.saturating_sub(height).saturating_add(1);
+        } else if to >= self.scroll_offset.row.saturating_add(content_height) {
+            self.scroll_offset.row = to.saturating_sub(content_height).saturating_add(1);
             true
         } else {
             false
         };
-        self.needs_redrawn = self.needs_redrawn || offset_changed;
+        if offset_changed {
+            self.needs_redrawn = true;
+        }
     }
 
     fn scroll_horizontally(&mut self, to: usize) {
-        let Size { width, .. } = self.size;
-        let offset_changed = if to < self.scroll_offset.col {
-            self.scroll_offset.col = to.saturating_sub(self.line_padding + 1);
+        let text_col = to.saturating_sub(self.line_padding + 1);
+        let visible_width = self.size.width.saturating_sub(self.line_padding + 1);
+
+        let offset_changed = if text_col < self.scroll_offset.col {
+            self.scroll_offset.col = text_col;
             true
-        } else if to >= self.scroll_offset.col.saturating_add(width) {
-            self.scroll_offset.col = to.saturating_sub(width).saturating_add(1);
+        } else if to >= self.scroll_offset.col.saturating_add(visible_width) {
+            self.scroll_offset.col = text_col.saturating_sub(visible_width);
             true
         } else {
             false
         };
-        self.needs_redrawn = self.needs_redrawn || offset_changed;
+        if offset_changed {
+            self.needs_redrawn = true;
+        }
     }
 
     fn scroll_location_into_view(&mut self) {
@@ -245,6 +271,21 @@ impl View {
         debug_assert!(result.is_ok(), "Failed to render welcome message");
     }
 
+    fn draw_status_bar(&self) {
+        let status_row = self.size.height.saturating_sub(1);
+        let status_label = match self.mode {
+            Mode::Insert => "INSERT",
+            Mode::Normal => "NORMAL",
+        };
+        let mut status_text = format!("-- {status_label} --");
+        if status_text.len() < self.size.width {
+            status_text.push_str(&" ".repeat(self.size.width - status_text.len()));
+        } else {
+            status_text.truncate(self.size.width);
+        }
+        let _ = Terminal::print_row(status_row, &status_text);
+    }
+
     pub fn load(&mut self, filename: &str) {
         if let Ok(buffer) = Buffer::load(filename) {
             self.buffer = buffer;
@@ -257,9 +298,38 @@ impl View {
         }
     }
 
-    pub fn resize(&mut self, to: Size) {
+    fn resize(&mut self, to: Size) {
         self.size = to;
         self.scroll_location_into_view();
+        self.needs_redrawn = true;
+    }
+
+    fn insert_char(&mut self, character: char) {
+        let old_len = self
+            .buffer
+            .lines
+            .get(self.text_location.line_index)
+            .map_or(0, Line::grapheme_count);
+
+        let adjusted_location = Location {
+            line_index: self.text_location.line_index,
+            grapheme_index: self
+                .text_location
+                .grapheme_index
+                .saturating_sub(self.line_padding + 1),
+        };
+
+        self.buffer.insert_char(character, adjusted_location);
+
+        let new_len = self
+            .buffer
+            .lines
+            .get(self.text_location.line_index)
+            .map_or(0, Line::grapheme_count);
+        let grapheme_delta = new_len.saturating_sub(old_len);
+        if grapheme_delta > 0 {
+            self.move_right();
+        }
         self.needs_redrawn = true;
     }
 }
@@ -276,6 +346,7 @@ impl Default for View {
                 line_index: 0,
             },
             scroll_offset: Position::default(),
+            mode: Mode::Normal,
         }
     }
 }

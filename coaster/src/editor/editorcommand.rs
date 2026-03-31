@@ -21,34 +21,60 @@ pub enum EditorCommand {
     Move(Direction),
     Resize(Size),
     Quit,
+    Insert(char),
+    ChangeMode(Mode),
 }
 
-impl TryFrom<Event> for EditorCommand {
+#[derive(Clone)]
+pub enum Mode {
+    Normal,
+    Insert,
+}
+
+#[allow(clippy::as_conversions)]
+impl TryFrom<(Event, Mode)> for EditorCommand {
     type Error = String;
-    fn try_from(event: Event) -> Result<Self, Self::Error> {
+    fn try_from((event, mode): (Event, Mode)) -> Result<Self, Self::Error> {
         match event {
             Event::Key(KeyEvent {
                 code, modifiers, ..
-            }) => match (code, modifiers) {
-                (KeyCode::Char('q'), KeyModifiers::CONTROL) => Ok(Self::Quit),
-                (KeyCode::PageUp, _) => Ok(Self::Move(Direction::PageUp)),
-                (KeyCode::PageDown, _) => Ok(Self::Move(Direction::PageDown)),
-                (KeyCode::Home, _) => Ok(Self::Move(Direction::Home)),
-                (KeyCode::End, _) => Ok(Self::Move(Direction::End)),
-                (KeyCode::Up | Char('k'), _) => Ok(Self::Move(Direction::Up)),
-                (KeyCode::Left | Char('h'), _) => Ok(Self::Move(Direction::Left)),
-                (KeyCode::Right | Char('l'), _) => Ok(Self::Move(Direction::Right)),
-                (KeyCode::Down | Char('j'), _) => Ok(Self::Move(Direction::Down)),
+            }) => match (mode, code, modifiers) {
+                // quitting
+                (_, KeyCode::Char('q'), KeyModifiers::CONTROL) => Ok(Self::Quit),
+
+                // changing mode
+                (Mode::Normal, KeyCode::Char('i'), KeyModifiers::NONE) => {
+                    Ok(Self::ChangeMode(Mode::Insert))
+                }
+                (Mode::Insert, KeyCode::Esc, _) => Ok(Self::ChangeMode(Mode::Normal)),
+
+                // insertion
+                (
+                    Mode::Insert,
+                    KeyCode::Char(character),
+                    KeyModifiers::NONE | KeyModifiers::SHIFT,
+                ) => Ok(Self::Insert(character)),
+
+                // navigation
+                (_, KeyCode::PageUp, _) => Ok(Self::Move(Direction::PageUp)),
+                (_, KeyCode::PageDown, _) => Ok(Self::Move(Direction::PageDown)),
+                (_, KeyCode::Home, _) => Ok(Self::Move(Direction::Home)),
+                (_, KeyCode::End, _) => Ok(Self::Move(Direction::End)),
+                (_, KeyCode::Left, _) => Ok(Self::Move(Direction::Left)),
+                (_, KeyCode::Down, _) => Ok(Self::Move(Direction::Down)),
+                (_, KeyCode::Up, _) => Ok(Self::Move(Direction::Up)),
+                (_, KeyCode::Right, _) => Ok(Self::Move(Direction::Right)),
+                (Mode::Normal, Char('h'), KeyModifiers::NONE) => Ok(Self::Move(Direction::Left)),
+                (Mode::Normal, Char('j'), KeyModifiers::NONE) => Ok(Self::Move(Direction::Down)),
+                (Mode::Normal, Char('k'), KeyModifiers::NONE) => Ok(Self::Move(Direction::Up)),
+                (Mode::Normal, Char('l'), KeyModifiers::NONE) => Ok(Self::Move(Direction::Right)),
+
                 _ => Err(format!("Unsupported key code: {code:?}")),
             },
-            Event::Resize(width_u16, height_u16) => {
-                #[allow(clippy::as_conversions)]
-                let height = height_u16 as usize;
-                #[allow(clippy::as_conversions)]
-                let width = width_u16 as usize;
-
-                Ok(Self::Resize(Size { height, width }))
-            }
+            Event::Resize(width_u16, height_u16) => Ok(Self::Resize(Size {
+                height: height_u16 as usize,
+                width: width_u16 as usize,
+            })),
             _ => Err(format!("Unsupported event: {event:?}")),
         }
     }
