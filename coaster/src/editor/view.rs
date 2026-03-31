@@ -85,14 +85,16 @@ impl View {
 
     pub fn handle_command(&mut self, command: EditorCommand) {
         match command {
-            EditorCommand::Resize(size) => self.resize(size),
-            EditorCommand::Move(direction) => self.move_text_location(&direction),
-            EditorCommand::Insert(character) => self.insert_char(character),
             EditorCommand::Quit => {}
             EditorCommand::ChangeMode(mode) => {
                 self.mode = mode;
                 self.needs_redrawn = true;
             }
+            EditorCommand::Move(direction) => self.move_text_location(&direction),
+            EditorCommand::Resize(size) => self.resize(size),
+            EditorCommand::Insert(character) => self.insert_char(character),
+            EditorCommand::Backspace => self.backspace(),
+            EditorCommand::Delete => self.delete(),
         }
     }
 
@@ -304,6 +306,26 @@ impl View {
         self.needs_redrawn = true;
     }
 
+    fn get_adjusted_location(&self) -> Location {
+        Location {
+            grapheme_index: self
+                .text_location
+                .grapheme_index
+                .saturating_sub(self.line_padding + 1),
+            line_index: self.text_location.line_index,
+        }
+    }
+
+    fn backspace(&mut self) {
+        self.move_left();
+        self.delete();
+    }
+
+    fn delete(&mut self) {
+        self.buffer.delete(self.get_adjusted_location());
+        self.needs_redrawn = true;
+    }
+
     fn insert_char(&mut self, character: char) {
         let old_len = self
             .buffer
@@ -311,15 +333,8 @@ impl View {
             .get(self.text_location.line_index)
             .map_or(0, Line::grapheme_count);
 
-        let adjusted_location = Location {
-            line_index: self.text_location.line_index,
-            grapheme_index: self
-                .text_location
-                .grapheme_index
-                .saturating_sub(self.line_padding + 1),
-        };
-
-        self.buffer.insert_char(character, adjusted_location);
+        self.buffer
+            .insert_char(character, self.get_adjusted_location());
 
         let new_len = self
             .buffer

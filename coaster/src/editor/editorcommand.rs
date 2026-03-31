@@ -18,11 +18,13 @@ pub enum Direction {
     Down,
 }
 pub enum EditorCommand {
+    Quit,
+    ChangeMode(Mode),
     Move(Direction),
     Resize(Size),
-    Quit,
     Insert(char),
-    ChangeMode(Mode),
+    Backspace,
+    Delete,
 }
 
 #[derive(Clone)]
@@ -48,12 +50,14 @@ impl TryFrom<(Event, Mode)> for EditorCommand {
                 }
                 (Mode::Insert, KeyCode::Esc, _) => Ok(Self::ChangeMode(Mode::Normal)),
 
-                // insertion
+                // editing
                 (
                     Mode::Insert,
                     KeyCode::Char(character),
                     KeyModifiers::NONE | KeyModifiers::SHIFT,
                 ) => Ok(Self::Insert(character)),
+                (Mode::Insert, KeyCode::Backspace, _) => Ok(Self::Backspace),
+                (Mode::Insert, KeyCode::Delete, _) => Ok(Self::Delete),
 
                 // navigation
                 (_, KeyCode::PageUp, _) => Ok(Self::Move(Direction::PageUp)),
