@@ -1,4 +1,5 @@
 mod buffer;
+mod commandline;
 mod line;
 
 use std::cmp::{max, min};
@@ -85,16 +86,18 @@ impl View {
 
     pub fn handle_command(&mut self, command: EditorCommand) {
         match command {
-            EditorCommand::Quit => {}
             EditorCommand::ChangeMode(mode) => {
                 self.mode = mode;
                 self.needs_redrawn = true;
             }
             EditorCommand::Move(direction) => self.move_text_location(&direction),
             EditorCommand::Resize(size) => self.resize(size),
-            EditorCommand::Insert(character) => self.insert_char(character),
-            EditorCommand::Backspace => self.backspace(),
-            EditorCommand::Delete => self.delete(),
+            EditorCommand::InsertText(character) => self.insert_text_char(character),
+            EditorCommand::Backspace => self.delete_backwards(),
+            EditorCommand::Delete => self.delete_forwards(),
+            EditorCommand::Enter => self.insert_newline(),
+            EditorCommand::InsertCommand(character) => self.insert_command_char(character),
+            EditorCommand::ExecuteCommand => self.execute_command(),
         }
     }
 
@@ -275,16 +278,21 @@ impl View {
 
     fn draw_status_bar(&self) {
         let status_row = self.size.height.saturating_sub(1);
-        let status_label = match self.mode {
-            Mode::Insert => "INSERT",
-            Mode::Normal => "NORMAL",
+        let status_text = match self.mode {
+            Mode::Insert => "-- INSERT --".to_string(),
+            Mode::Normal => "-- NORMAL --".to_string(),
+            Mode::Command => self.buffer.command_line.get_display_command(),
+            _ => "".to_string(),
         };
-        let mut status_text = format!("-- {status_label} --");
-        if status_text.len() < self.size.width {
-            status_text.push_str(&" ".repeat(self.size.width - status_text.len()));
+        let status_text = if status_text.len() < self.size.width {
+            let mut s = status_text;
+            s.push_str(&" ".repeat(self.size.width - s.len()));
+            s
         } else {
-            status_text.truncate(self.size.width);
-        }
+            let mut s = status_text;
+            s.truncate(self.size.width);
+            s
+        };
         let _ = Terminal::print_row(status_row, &status_text);
     }
 
@@ -316,7 +324,7 @@ impl View {
         }
     }
 
-    fn backspace(&mut self) {
+    fn delete_backwards(&mut self) {
         if self.text_location.line_index != 0
             || self
                 .text_location
@@ -325,16 +333,22 @@ impl View {
                 != 0
         {
             self.move_text_location(&Direction::Left);
-            self.delete()
+            self.delete_forwards()
         }
     }
 
-    fn delete(&mut self) {
+    fn delete_forwards(&mut self) {
         self.buffer.delete(self.get_adjusted_location());
         self.needs_redrawn = true;
     }
 
-    fn insert_char(&mut self, character: char) {
+    fn insert_newline(&mut self) {
+        self.buffer.insert_newline(self.get_adjusted_location());
+        self.move_text_location(&Direction::Right);
+        self.needs_redrawn = true;
+    }
+
+    fn insert_text_char(&mut self, character: char) {
         let old_len = self
             .buffer
             .lines
@@ -353,6 +367,31 @@ impl View {
         if grapheme_delta > 0 {
             self.move_text_location(&Direction::Right)
         }
+        self.needs_redrawn = true;
+    }
+
+    fn insert_command_char(&mut self, character: char) {
+        self.buffer.command_line.insert_char(character);
+        self.needs_redrawn = true;
+    }
+
+    fn execute_command(&mut self) {
+        let command = self.buffer.command_line.as_str();
+
+        for c in command.chars() {
+            match c {
+                'w' => {
+                    let _ = self.buffer.save();
+                    self.mode = Mode::Normal;
+                }
+                'q' => {
+                    self.mode = Mode::Exiting;
+                }
+                _ => {}
+            }
+        }
+
+        self.buffer.command_line.clear();
         self.needs_redrawn = true;
     }
 }

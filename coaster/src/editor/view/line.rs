@@ -20,9 +20,10 @@ impl GraphemeWidth {
 struct TextFragment {
     grapheme: String,
     rendered_width: GraphemeWidth,
-    replacemanet: Option<char>,
+    replacement: Option<char>,
 }
 
+#[derive(Default)]
 pub struct Line {
     fragments: Vec<TextFragment>,
 }
@@ -53,7 +54,7 @@ impl Line {
                 TextFragment {
                     grapheme: grapheme.to_string(),
                     rendered_width: rendered_width,
-                    replacemanet: replacement,
+                    replacement,
                 }
             })
             .collect()
@@ -94,7 +95,7 @@ impl Line {
             if fragment_end > range.start {
                 if fragment_end > range.end || current_pos < range.start {
                     result.push('⋯');
-                } else if let Some(char) = fragment.replacemanet {
+                } else if let Some(char) = fragment.replacement {
                     result.push(char);
                 } else {
                     result.push_str(&fragment.grapheme);
@@ -121,16 +122,16 @@ impl Line {
             .sum()
     }
 
-    pub fn insert_char(&mut self, character: char, grapheme_index: usize) {
+    pub fn insert_char(&mut self, character: char, at: usize) {
         let mut result = String::new();
 
         for (index, fragment) in self.fragments.iter().enumerate() {
-            if index == grapheme_index {
+            if index == at {
                 result.push(character);
             }
             result.push_str(&fragment.grapheme);
         }
-        if grapheme_index >= self.fragments.len() {
+        if at >= self.fragments.len() {
             result.push(character);
         }
         self.fragments = Self::str_to_fragments(&result)
@@ -151,6 +152,16 @@ impl Line {
         let mut concat = self.to_string();
         concat.push_str(&other.to_string());
         self.fragments = Self::str_to_fragments(&concat);
+    }
+
+    pub fn split(&mut self, at: usize) -> Self {
+        if at > self.fragments.len() {
+            return Self::default();
+        }
+        let remainder = self.fragments.split_off(at);
+        Self {
+            fragments: remainder,
+        }
     }
 }
 

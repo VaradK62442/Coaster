@@ -82,6 +82,7 @@ impl Terminal {
         let style = match mode {
             Mode::Normal => BlinkingBlock,
             Mode::Insert => BlinkingUnderScore,
+            _ => BlinkingBlock,
         };
         Self::queue_command(style)?;
         Ok(())

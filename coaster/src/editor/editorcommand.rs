@@ -18,19 +18,23 @@ pub enum Direction {
     Down,
 }
 pub enum EditorCommand {
-    Quit,
     ChangeMode(Mode),
     Move(Direction),
     Resize(Size),
-    Insert(char),
+    InsertText(char),
     Backspace,
     Delete,
+    Enter,
+    InsertCommand(char),
+    ExecuteCommand,
 }
 
 #[derive(Clone)]
 pub enum Mode {
     Normal,
     Insert,
+    Command,
+    Exiting,
 }
 
 #[allow(clippy::as_conversions)]
@@ -41,23 +45,29 @@ impl TryFrom<(Event, Mode)> for EditorCommand {
             Event::Key(KeyEvent {
                 code, modifiers, ..
             }) => match (mode, code, modifiers) {
-                // quitting
-                (_, KeyCode::Char('q'), KeyModifiers::CONTROL) => Ok(Self::Quit),
+                // commands
+                (Mode::Command, KeyCode::Char(character), KeyModifiers::NONE) => {
+                    Ok(Self::InsertCommand(character))
+                }
+                (Mode::Command, KeyCode::Enter, KeyModifiers::NONE) => Ok(Self::ExecuteCommand),
 
                 // changing mode
                 (Mode::Normal, KeyCode::Char('i'), KeyModifiers::NONE) => {
                     Ok(Self::ChangeMode(Mode::Insert))
                 }
-                (Mode::Insert, KeyCode::Esc, _) => Ok(Self::ChangeMode(Mode::Normal)),
+                (Mode::Normal, KeyCode::Char(':'), _) => Ok(Self::ChangeMode(Mode::Command)),
+                (_, KeyCode::Esc, _) => Ok(Self::ChangeMode(Mode::Normal)),
 
                 // editing
                 (
                     Mode::Insert,
                     KeyCode::Char(character),
                     KeyModifiers::NONE | KeyModifiers::SHIFT,
-                ) => Ok(Self::Insert(character)),
+                ) => Ok(Self::InsertText(character)),
                 (Mode::Insert, KeyCode::Backspace, _) => Ok(Self::Backspace),
                 (Mode::Insert, KeyCode::Delete, _) => Ok(Self::Delete),
+                (Mode::Insert, KeyCode::Tab, _) => Ok(Self::InsertText('\t')),
+                (Mode::Insert, KeyCode::Enter, _) => Ok(Self::Enter),
 
                 // navigation
                 (_, KeyCode::PageUp, _) => Ok(Self::Move(Direction::PageUp)),

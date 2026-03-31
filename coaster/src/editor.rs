@@ -3,7 +3,7 @@ mod terminal;
 mod view;
 
 use crossterm::event::{Event, KeyEvent, KeyEventKind, read};
-use editorcommand::EditorCommand;
+use editorcommand::{EditorCommand, Mode};
 use std::{
     env,
     io::Error,
@@ -64,10 +64,10 @@ impl Editor {
 
         if should_process {
             if let Ok(command) = EditorCommand::try_from((event, self.view.mode.clone())) {
-                if matches!(command, EditorCommand::Quit) {
-                    self.should_quit = true;
-                } else {
-                    self.view.handle_command(command);
+                self.view.handle_command(command);
+                match self.view.mode {
+                    Mode::Exiting => self.should_quit = true,
+                    _ => {}
                 }
             }
         } else {
