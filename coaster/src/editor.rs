@@ -3,7 +3,7 @@ mod terminal;
 mod view;
 
 use crossterm::event::{Event, KeyEvent, KeyEventKind, read};
-use editorcommand::{EditorCommand, Mode};
+use editorcommand::EditorCommand;
 use std::{
     env,
     io::Error,
