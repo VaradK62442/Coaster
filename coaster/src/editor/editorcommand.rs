@@ -7,6 +7,7 @@ use std::convert::TryFrom;
 
 use super::terminal::Size;
 
+#[derive(Clone, Copy)]
 pub enum Direction {
     PageUp,
     PageDown,
@@ -17,6 +18,8 @@ pub enum Direction {
     Right,
     Down,
 }
+
+#[derive(Clone, Copy)]
 pub enum EditorCommand {
     ChangeMode(Mode),
     Move(Direction),
@@ -29,12 +32,18 @@ pub enum EditorCommand {
     ExecuteCommand,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 pub enum Mode {
     Normal,
     Insert,
     Command,
     Exiting,
+}
+
+impl Default for Mode {
+    fn default() -> Self {
+        Self::Normal
+    }
 }
 
 #[allow(clippy::as_conversions)]

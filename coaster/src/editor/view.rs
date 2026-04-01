@@ -1,18 +1,20 @@
 mod buffer;
-mod commandline;
 mod line;
 
-use std::cmp::{max, min};
+use std::{
+    cmp::{max, min},
+    io::Error,
+};
 
 use self::line::Line;
 use super::{
+    DocumentStatus, NAME, VERSION,
     editorcommand::{Direction, EditorCommand, Mode},
     terminal::{Position, Size, Terminal},
+    uicomponent::UIComponent,
 };
 use buffer::Buffer;
 
-const NAME: &str = env!("CARGO_PKG_NAME");
-const VERSION: &str = env!("CARGO_PKG_VERSION");
 const DEFAULT_LINE: &str = "~";
 
 #[derive(Copy, Clone, Default)]
@@ -21,6 +23,7 @@ pub struct Location {
     pub line_index: usize,
 }
 
+#[derive(Default)]
 pub struct View {
     buffer: Buffer,
     pub needs_redrawn: bool,
@@ -32,73 +35,20 @@ pub struct View {
 }
 
 impl View {
-    pub fn render(&mut self) {
-        if !self.needs_redrawn {
-            return;
-        }
-
-        let Size { height, width } = self.size;
-        if height == 0 || width == 0 {
-            return;
-        }
-
-        let content_rows = if height == 1 {
-            0
-        } else {
-            height.saturating_sub(1)
-        };
-        let visible_width = width.saturating_sub(self.line_padding + 1);
-
-        let top = self.scroll_offset.row;
-        for current_row in 0..content_rows {
-            let mut default_string;
-            if let Some(line) = self.buffer.lines.get(current_row.saturating_add(top)) {
-                let left_text = self.scroll_offset.col;
-                let right_text = left_text.saturating_add(visible_width);
-                default_string = format!(
-                    "{:width$} ",
-                    current_row
-                        .saturating_add(self.scroll_offset.row)
-                        .saturating_add(1),
-                    width = self.line_padding
-                )
-                .to_owned();
-                default_string.push_str(&line.get_visible_graphemes(left_text..right_text));
-            } else {
-                default_string = format!("{DEFAULT_LINE:width$} ", width = self.line_padding);
-                if visible_width > 0 {
-                    default_string.push_str(&" ".repeat(visible_width));
-                }
-            }
-
-            if default_string.len() > width {
-                default_string.truncate(width);
-            }
-            Self::render_line(current_row, &default_string);
-        }
-
-        if self.buffer.is_empty() && content_rows > 0 {
-            self.draw_welcome_msg(self.size);
-        }
-        self.draw_status_bar();
-        self.needs_redrawn = false;
-    }
-
     pub fn handle_command(&mut self, command: EditorCommand) {
         match command {
-            EditorCommand::ChangeMode(mode) => {
-                self.mode = mode;
-                self.needs_redrawn = true;
-            }
             EditorCommand::Move(direction) => self.move_text_location(&direction),
-            EditorCommand::Resize(size) => self.resize(size),
+            EditorCommand::Resize(_) => {}
             EditorCommand::InsertText(character) => self.insert_text_char(character),
             EditorCommand::Backspace => self.delete_backwards(),
             EditorCommand::Delete => self.delete_forwards(),
             EditorCommand::Enter => self.insert_newline(),
-            EditorCommand::InsertCommand(character) => self.insert_command_char(character),
-            EditorCommand::ExecuteCommand => self.execute_command(),
+            _ => {}
         }
+    }
+
+    pub fn change_mode(&mut self, mode: Mode) {
+        self.mode = mode;
     }
 
     fn scroll_vertically(&mut self, to: usize) {
@@ -113,7 +63,7 @@ impl View {
             false
         };
         if offset_changed {
-            self.needs_redrawn = true;
+            self.mark_redrawn(true);
         }
     }
 
@@ -131,7 +81,7 @@ impl View {
             false
         };
         if offset_changed {
-            self.needs_redrawn = true;
+            self.mark_redrawn(true);
         }
     }
 
@@ -246,9 +196,8 @@ impl View {
         self.text_location.line_index = min(self.text_location.line_index, self.buffer.height());
     }
 
-    fn render_line(at: usize, line_text: &str) {
-        let result = Terminal::print_row(at, line_text);
-        debug_assert!(result.is_ok(), "Failed to render line");
+    fn render_line(at: usize, line_text: &str) -> Result<(), Error> {
+        Terminal::print_row(at, line_text)
     }
 
     /// Prints the name and version of the editor in the middle of the terminal
@@ -276,30 +225,19 @@ impl View {
         debug_assert!(result.is_ok(), "Failed to render welcome message");
     }
 
-    fn draw_status_bar(&self) {
-        let status_row = self.size.height.saturating_sub(1);
-        let status_text = match self.mode {
-            Mode::Insert => "-- INSERT --".to_string(),
-            Mode::Normal => "-- NORMAL --".to_string(),
-            Mode::Command => self.buffer.command_line.get_display_command(),
-            _ => "".to_string(),
-        };
-        let status_text = if status_text.len() < self.size.width {
-            let mut s = status_text;
-            s.push_str(&" ".repeat(self.size.width - s.len()));
-            s
-        } else {
-            let mut s = status_text;
-            s.truncate(self.size.width);
-            s
-        };
-        let _ = Terminal::print_row(status_row, &status_text);
+    pub fn get_status(&self) -> DocumentStatus {
+        DocumentStatus {
+            total_lines: self.buffer.height(),
+            current_line_index: self.text_location.line_index,
+            is_modified: self.buffer.dirty,
+            filename: format!("{}", self.buffer.file_info),
+        }
     }
 
     pub fn load(&mut self, filename: &str) {
         if let Ok(buffer) = Buffer::load(filename) {
             self.buffer = buffer;
-            self.needs_redrawn = true;
+            self.mark_redrawn(true);
             self.line_padding = self.buffer.height().to_string().len();
             self.text_location = Location {
                 grapheme_index: self.line_padding + 1,
@@ -308,10 +246,8 @@ impl View {
         }
     }
 
-    fn resize(&mut self, to: Size) {
-        self.size = to;
-        self.scroll_location_into_view();
-        self.needs_redrawn = true;
+    pub fn save(&mut self) {
+        let _ = self.buffer.save();
     }
 
     fn get_adjusted_location(&self) -> Location {
@@ -339,13 +275,13 @@ impl View {
 
     fn delete_forwards(&mut self) {
         self.buffer.delete(self.get_adjusted_location());
-        self.needs_redrawn = true;
+        self.mark_redrawn(true);
     }
 
     fn insert_newline(&mut self) {
         self.buffer.insert_newline(self.get_adjusted_location());
         self.move_text_location(&Direction::Right);
-        self.needs_redrawn = true;
+        self.mark_redrawn(true);
     }
 
     fn insert_text_char(&mut self, character: char) {
@@ -367,49 +303,62 @@ impl View {
         if grapheme_delta > 0 {
             self.move_text_location(&Direction::Right)
         }
-        self.needs_redrawn = true;
-    }
-
-    fn insert_command_char(&mut self, character: char) {
-        self.buffer.command_line.insert_char(character);
-        self.needs_redrawn = true;
-    }
-
-    fn execute_command(&mut self) {
-        let command = self.buffer.command_line.as_str();
-
-        for c in command.chars() {
-            match c {
-                'w' => {
-                    let _ = self.buffer.save();
-                    self.mode = Mode::Normal;
-                }
-                'q' => {
-                    self.mode = Mode::Exiting;
-                    break;
-                }
-                _ => {}
-            }
-        }
-
-        self.buffer.command_line.clear();
-        self.needs_redrawn = true;
+        self.mark_redrawn(true);
     }
 }
 
-impl Default for View {
-    fn default() -> Self {
-        Self {
-            buffer: Buffer::default(),
-            needs_redrawn: true,
-            size: Terminal::size().unwrap_or_default(),
-            line_padding: 1,
-            text_location: Location {
-                grapheme_index: 2,
-                line_index: 0,
-            },
-            scroll_offset: Position::default(),
-            mode: Mode::Normal,
+impl UIComponent for View {
+    fn mark_redrawn(&mut self, value: bool) {
+        self.needs_redrawn = value;
+    }
+
+    fn needs_redrawn(&self) -> bool {
+        self.needs_redrawn
+    }
+
+    fn set_size(&mut self, size: Size) {
+        self.size = size;
+        self.scroll_location_into_view();
+    }
+
+    fn draw(&mut self, origin_y: usize) -> Result<(), Error> {
+        let Size { height, width } = self.size;
+        let end_y = origin_y.saturating_add(height);
+        let visible_width = width.saturating_sub(self.line_padding + 1);
+
+        let top = self.scroll_offset.row;
+        for current_row in origin_y..end_y {
+            let mut default_string;
+            if let Some(line) = self.buffer.lines.get(current_row.saturating_add(top)) {
+                let left_text = self.scroll_offset.col;
+                let right_text = left_text.saturating_add(visible_width);
+                default_string = format!(
+                    "{:width$} ",
+                    current_row
+                        .saturating_add(self.scroll_offset.row)
+                        .saturating_add(1),
+                    width = self.line_padding
+                )
+                .to_owned();
+                default_string.push_str(&line.get_visible_graphemes(left_text..right_text));
+            } else {
+                default_string = format!("{DEFAULT_LINE:width$} ", width = self.line_padding);
+                if visible_width > 0 {
+                    default_string.push_str(&" ".repeat(visible_width));
+                }
+            }
+
+            if default_string.len() > width {
+                default_string.truncate(width);
+            }
+            Self::render_line(current_row, &default_string)?;
         }
+
+        if self.buffer.is_empty() {
+            self.draw_welcome_msg(self.size);
+        }
+        self.mark_redrawn(false);
+
+        Ok(())
     }
 }
