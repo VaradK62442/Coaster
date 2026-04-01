@@ -386,6 +386,7 @@ impl View {
                 }
                 'q' => {
                     self.mode = Mode::Exiting;
+                    break;
                 }
                 _ => {}
             }
