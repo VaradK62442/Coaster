@@ -75,10 +75,10 @@ impl TryFrom<(Event, Mode)> for EditorCommand {
                 (Mode::Normal, KeyCode::Char('a'), KeyModifiers::NONE) => {
                     Ok(Self::ChangeMode(Mode::Insert('a')))
                 }
-                (Mode::Normal, KeyCode::Char('i'), KeyModifiers::SHIFT) => {
+                (Mode::Normal, KeyCode::Char('I'), KeyModifiers::SHIFT) => {
                     Ok(Self::ChangeMode(Mode::Insert('I')))
                 }
-                (Mode::Normal, KeyCode::Char('a'), KeyModifiers::SHIFT) => {
+                (Mode::Normal, KeyCode::Char('A'), KeyModifiers::SHIFT) => {
                     Ok(Self::ChangeMode(Mode::Insert('A')))
                 }
                 (Mode::Normal, KeyCode::Char(':'), _) => Ok(Self::ChangeMode(Mode::Command)),
@@ -111,6 +111,7 @@ impl TryFrom<(Event, Mode)> for EditorCommand {
                 (Mode::Normal, Char('j'), KeyModifiers::NONE) => Ok(Self::Move(Direction::Down)),
                 (Mode::Normal, Char('k'), KeyModifiers::NONE) => Ok(Self::Move(Direction::Up)),
                 (Mode::Normal, Char('l'), KeyModifiers::NONE) => Ok(Self::Move(Direction::Right)),
+                (Mode::Normal, Char('$'), KeyModifiers::NONE) => Ok(Self::Move(Direction::End)),
 
                 _ => Err(format!("Unsupported key code: {code:?}")),
             },

@@ -48,7 +48,7 @@ impl View {
     }
 
     pub fn change_mode(&mut self, mode: Mode) {
-        match mode {
+        match &mode {
             Mode::Normal => {
                 if let Mode::Insert(_) = self.mode {
                     self.move_text_location(&Direction::Left);
@@ -181,7 +181,7 @@ impl View {
             .lines
             .get(self.text_location.line_index)
             .map_or(0, Line::grapheme_count)
-            .saturating_add(self.line_padding + 1);
+            .saturating_add(self.line_padding);
     }
 
     fn snap_to_valid_grapheme(&mut self) {
