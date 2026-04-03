@@ -21,16 +21,23 @@ pub enum Direction {
 
 #[derive(Clone, Copy)]
 pub enum EditorCommand {
+    // commands
+    InsertCommand(char),
+    DeleteCommand,
+    ExecuteCommand,
+
+    // mode
     ChangeMode(Mode),
-    Move(Direction),
-    Resize(Size),
+
+    // inserting
     InsertText(char),
     Backspace,
     Delete,
     Enter,
-    InsertCommand(char),
-    DeleteCommand,
-    ExecuteCommand,
+
+    // navigation
+    Move(Direction),
+    Resize(Size),
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -77,7 +84,7 @@ impl TryFrom<(Event, Mode)> for EditorCommand {
                 (Mode::Normal, KeyCode::Char(':'), _) => Ok(Self::ChangeMode(Mode::Command)),
                 (_, KeyCode::Esc, _) => Ok(Self::ChangeMode(Mode::Normal)),
 
-                // editing
+                // inserting
                 (
                     Mode::Insert(_),
                     KeyCode::Char(character),
@@ -87,6 +94,9 @@ impl TryFrom<(Event, Mode)> for EditorCommand {
                 (Mode::Insert(_), KeyCode::Delete, _) => Ok(Self::Delete),
                 (Mode::Insert(_), KeyCode::Tab, _) => Ok(Self::InsertText('\t')),
                 (Mode::Insert(_), KeyCode::Enter, _) => Ok(Self::Enter),
+
+                // editing
+                (Mode::Normal, KeyCode::Char('x'), KeyModifiers::NONE) => Ok(Self::Delete),
 
                 // navigation
                 (_, KeyCode::PageUp, _) => Ok(Self::Move(Direction::PageUp)),
