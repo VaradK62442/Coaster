@@ -278,11 +278,16 @@ impl View {
             || self
                 .text_location
                 .grapheme_index
-                .saturating_sub(self.line_padding + 1)
+                .saturating_sub(self.line_padding)
                 != 0
         {
-            self.move_text_location(&Direction::Left);
-            self.delete_forwards()
+            if self.text_location.grapheme_index > self.line_padding + 1 {
+                self.move_text_location(&Direction::Left);
+            } else {
+                self.move_text_location(&Direction::Up);
+                self.move_text_location(&Direction::End);
+            }
+            self.delete_forwards();
         }
     }
 
@@ -293,7 +298,8 @@ impl View {
 
     fn insert_newline(&mut self) {
         self.buffer.insert_newline(self.get_adjusted_location());
-        self.move_text_location(&Direction::Right);
+        self.move_text_location(&Direction::Down);
+        self.move_text_location(&Direction::Home);
         self.mark_redrawn(true);
     }
 
