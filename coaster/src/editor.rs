@@ -1,3 +1,4 @@
+mod commands;
 mod documentstatus;
 mod editorcommand;
 mod fileinfo;
@@ -9,6 +10,8 @@ mod view;
 
 use self::{messagebar::MessageBar, terminal::Size};
 use crossterm::event::{Event, KeyEvent, KeyEventKind, read};
+
+use commands::{Command, parse_command};
 use documentstatus::DocumentStatus;
 use editorcommand::{EditorCommand, Mode};
 use statusbar::StatusBar;
@@ -62,7 +65,6 @@ impl Editor {
         return match self.view.mode {
             Mode::Insert => "-- INSERT --".to_string(),
             Mode::Normal => "-- NORMAL --".to_string(),
-            Mode::Exiting => ">>> Exiting...".to_string(),
             Mode::Command => COMMAND_PREFIX.to_string(),
         };
     }
@@ -111,8 +113,7 @@ impl Editor {
                 }
             }
 
-            let status = self.view.get_status();
-            self.status_bar.update_status(status);
+            self.status_bar.update_status(self.view.get_status());
         }
     }
 
@@ -132,15 +133,12 @@ impl Editor {
                     self.message_bar.update_message(self.get_status_text());
                 } else if let EditorCommand::InsertCommand(c) = command {
                     self.message_bar.insert_command_char(c);
+                } else if let EditorCommand::DeleteCommand = command {
+                    self.message_bar.delete_last_char();
                 } else if let EditorCommand::ExecuteCommand = command {
                     self.execute_command();
                 } else {
                     self.view.handle_command(command);
-                }
-
-                match self.view.mode {
-                    Mode::Exiting => self.should_quit = true,
-                    _ => {}
                 }
             }
         } else {
@@ -153,23 +151,29 @@ impl Editor {
 
     fn execute_command(&mut self) {
         let command = self.message_bar.get_current_message();
-        let mut new_mode = Mode::Normal;
-
-        for c in command.chars() {
-            match c {
-                'w' => {
-                    let _ = self.view.save();
+        for cmd in parse_command(command) {
+            match cmd {
+                Command::Save(filename) => {
+                    self.view.save_as(&filename);
                 }
-                'q' => {
-                    new_mode = Mode::Exiting;
-                    break;
+                Command::Quit => {
+                    if !self.is_dirty() {
+                        self.should_quit = true;
+                    } else {
+                        self.message_bar
+                            .update_message("File is dirty. Save before quitting.".to_string());
+                        self.view.change_mode(Mode::Normal);
+                    }
                 }
-                _ => {}
+                Command::ForceQuit => {
+                    self.should_quit = true;
+                }
             }
         }
+    }
 
-        self.view.change_mode(new_mode);
-        self.message_bar.update_message(self.get_status_text());
+    fn is_dirty(&self) -> bool {
+        self.view.is_dirty()
     }
 
     fn refresh_screen(&mut self) {

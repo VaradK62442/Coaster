@@ -24,6 +24,13 @@ impl MessageBar {
         self.mark_redrawn(true);
     }
 
+    pub fn delete_last_char(&mut self) {
+        if self.current_message.len() > 1 {
+            self.current_message.pop();
+            self.mark_redrawn(true);
+        }
+    }
+
     pub fn get_current_message(&self) -> &str {
         &self.current_message
     }

@@ -29,6 +29,7 @@ pub enum EditorCommand {
     Delete,
     Enter,
     InsertCommand(char),
+    DeleteCommand,
     ExecuteCommand,
 }
 
@@ -37,7 +38,6 @@ pub enum Mode {
     Normal,
     Insert,
     Command,
-    Exiting,
 }
 
 impl Default for Mode {
@@ -59,6 +59,7 @@ impl TryFrom<(Event, Mode)> for EditorCommand {
                     Ok(Self::InsertCommand(character))
                 }
                 (Mode::Command, KeyCode::Enter, KeyModifiers::NONE) => Ok(Self::ExecuteCommand),
+                (Mode::Command, KeyCode::Backspace, _) => Ok(Self::DeleteCommand),
 
                 // changing mode
                 (Mode::Normal, KeyCode::Char('i'), KeyModifiers::NONE) => {

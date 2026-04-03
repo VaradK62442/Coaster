@@ -246,8 +246,12 @@ impl View {
         }
     }
 
-    pub fn save(&mut self) {
-        let _ = self.buffer.save();
+    pub fn save_as(&mut self, filename: &str) {
+        let _ = self.buffer.save_as(filename);
+    }
+
+    pub fn is_dirty(&self) -> bool {
+        self.buffer.is_dirty()
     }
 
     fn get_adjusted_location(&self) -> Location {
