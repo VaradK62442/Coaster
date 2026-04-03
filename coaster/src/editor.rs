@@ -52,11 +52,15 @@ impl Editor {
         editor.resize(size);
 
         let args: Vec<String> = env::args().collect();
-        if let Some(file_name) = args.get(1) {
-            editor.view.load(file_name);
+        if let Some(filename) = args.get(1) {
+            if editor.view.load(filename).is_err() {
+                editor.message_bar.show_error("ERR: Failed to load file");
+            }
         }
 
-        editor.message_bar.update_message(editor.get_status_text());
+        editor
+            .message_bar
+            .update_message(editor.get_status_text().as_str());
         editor.refresh_status();
         Ok(editor)
     }
@@ -89,7 +93,8 @@ impl Editor {
         let status = self.view.get_status();
         let title = format!("{} - {NAME}", status.filename);
         self.status_bar.update_status(status);
-        self.message_bar.update_message(self.get_status_text());
+        self.message_bar
+            .update_message(self.get_status_text().as_str());
 
         if title != self.title && matches!(Terminal::set_title(&title), Ok(())) {
             self.title = title;
@@ -130,7 +135,8 @@ impl Editor {
                     self.resize(size);
                 } else if let EditorCommand::ChangeMode(mode) = command {
                     self.view.change_mode(mode);
-                    self.message_bar.update_message(self.get_status_text());
+                    self.message_bar
+                        .update_message(self.get_status_text().as_str());
                 } else if let EditorCommand::InsertCommand(c) = command {
                     self.message_bar.insert_command_char(c);
                 } else if let EditorCommand::DeleteCommand = command {
@@ -154,21 +160,27 @@ impl Editor {
         for cmd in parse_command(command) {
             match cmd {
                 Command::Save(filename) => {
-                    self.view.save_as(&filename);
+                    if self.view.save_as(&filename).is_err() {
+                        self.message_bar
+                            .show_error(format!("ERR: Failed to save file {filename}").as_str());
+                    }
                 }
                 Command::Quit => {
                     if !self.is_dirty() {
                         self.should_quit = true;
                     } else {
                         self.message_bar
-                            .update_message("File is dirty. Save before quitting.".to_string());
-                        self.view.change_mode(Mode::Normal);
+                            .show_error("ERR: File is dirty. Save before quitting.");
                     }
                 }
                 Command::ForceQuit => {
                     self.should_quit = true;
                 }
             }
+        }
+        self.view.change_mode(Mode::Normal);
+        if !self.message_bar.is_showing_error() {
+            self.message_bar.update_message(&self.get_status_text());
         }
     }
 

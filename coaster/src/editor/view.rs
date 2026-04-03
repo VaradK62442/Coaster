@@ -242,20 +242,21 @@ impl View {
         }
     }
 
-    pub fn load(&mut self, filename: &str) {
-        if let Ok(buffer) = Buffer::load(filename) {
-            self.buffer = buffer;
-            self.mark_redrawn(true);
-            self.line_padding = self.buffer.height().to_string().len();
-            self.text_location = Location {
-                grapheme_index: self.line_padding + 1,
-                line_index: 0,
-            };
-        }
+    pub fn load(&mut self, filename: &str) -> Result<(), Error> {
+        let buffer = Buffer::load(filename)?;
+        self.buffer = buffer;
+        self.mark_redrawn(true);
+        self.line_padding = self.buffer.height().to_string().len();
+        self.text_location = Location {
+            grapheme_index: self.line_padding + 1,
+            line_index: 0,
+        };
+
+        Ok(())
     }
 
-    pub fn save_as(&mut self, filename: &str) {
-        let _ = self.buffer.save_as(filename);
+    pub fn save_as(&mut self, filename: &str) -> Result<(), Error> {
+        self.buffer.save_as(filename)
     }
 
     pub fn is_dirty(&self) -> bool {

@@ -33,17 +33,22 @@ impl Buffer {
     }
 
     pub fn save_as(&mut self, filename: &str) -> Result<(), Error> {
-        let mut file_path = self.file_info.path.clone().unwrap();
-        if !filename.is_empty() {
-            file_path.pop();
-            file_path.push(filename);
+        let file_path = self.file_info.get_path();
+
+        if file_path.is_some() {
+            let mut path = file_path.unwrap().clone();
+            if !filename.is_empty() {
+                path.pop();
+                path.push(filename);
+            }
+
+            let mut file = File::create(&path)?;
+            for line in &self.lines {
+                writeln!(file, "{line}")?;
+            }
+            self.dirty = false;
         }
 
-        let mut file = File::create(&file_path)?;
-        for line in &self.lines {
-            writeln!(file, "{line}")?;
-        }
-        self.dirty = false;
         Ok(())
     }
 

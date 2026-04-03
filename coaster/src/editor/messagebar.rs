@@ -9,13 +9,15 @@ use super::{
 pub struct MessageBar {
     current_message: String,
     needs_redrawn: bool,
+    showing_error: bool,
 }
 
 impl MessageBar {
-    pub fn update_message(&mut self, new_msg: String) {
+    pub fn update_message(&mut self, new_msg: &str) {
         if new_msg != self.current_message {
-            self.current_message = new_msg;
+            self.current_message = new_msg.to_string();
             self.mark_redrawn(true);
+            self.showing_error = false;
         }
     }
 
@@ -33,6 +35,15 @@ impl MessageBar {
 
     pub fn get_current_message(&self) -> &str {
         &self.current_message
+    }
+
+    pub fn show_error(&mut self, error: &str) {
+        self.update_message(error);
+        self.showing_error = true;
+    }
+
+    pub fn is_showing_error(&self) -> bool {
+        self.showing_error
     }
 }
 

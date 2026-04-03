@@ -5,7 +5,7 @@ use std::{
 
 #[derive(Default, Debug, Clone)]
 pub struct FileInfo {
-    pub path: Option<PathBuf>,
+    path: Option<PathBuf>,
 }
 
 impl FileInfo {
@@ -13,6 +13,10 @@ impl FileInfo {
         Self {
             path: Some(PathBuf::from(filename)),
         }
+    }
+
+    pub fn get_path(&self) -> Option<&PathBuf> {
+        self.path.as_ref()
     }
 }
 
