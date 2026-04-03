@@ -157,9 +157,6 @@ impl View {
     fn move_left(&mut self) {
         if self.text_location.grapheme_index > self.line_padding + 1 {
             self.text_location.grapheme_index -= 1;
-        } else if self.text_location.line_index > 0 {
-            self.move_up(1);
-            self.move_to_end_of_line();
         }
     }
 
@@ -169,11 +166,8 @@ impl View {
             .lines
             .get(self.text_location.line_index)
             .map_or(0, Line::grapheme_count);
-        if self.text_location.grapheme_index < line_width.saturating_add(self.line_padding + 1) {
+        if self.text_location.grapheme_index < line_width.saturating_add(self.line_padding) {
             self.text_location.grapheme_index += 1;
-        } else {
-            self.move_to_start_of_line();
-            self.move_down(1);
         }
     }
 
@@ -198,7 +192,7 @@ impl View {
             .map_or(0, |line| {
                 max(
                     min(
-                        line.grapheme_count().saturating_add(self.line_padding + 1),
+                        line.grapheme_count().saturating_add(self.line_padding),
                         self.text_location.grapheme_index,
                     ),
                     self.line_padding + 1,
