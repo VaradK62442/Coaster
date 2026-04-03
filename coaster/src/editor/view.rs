@@ -48,6 +48,20 @@ impl View {
     }
 
     pub fn change_mode(&mut self, mode: Mode) {
+        match mode {
+            Mode::Normal => {
+                if let Mode::Insert(_) = self.mode {
+                    self.move_text_location(&Direction::Left);
+                }
+            }
+            Mode::Insert(c) => match c {
+                'a' => self.move_text_location(&Direction::Right),
+                'I' => self.move_text_location(&Direction::Home),
+                'A' => self.move_text_location(&Direction::End),
+                _ => {}
+            },
+            _ => {}
+        }
         self.mode = mode;
     }
 

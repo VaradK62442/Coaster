@@ -63,7 +63,7 @@ impl Editor {
 
     fn get_status_text(&self) -> String {
         return match self.view.mode {
-            Mode::Insert => "-- INSERT --".to_string(),
+            Mode::Insert(_) => "-- INSERT --".to_string(),
             Mode::Normal => "-- NORMAL --".to_string(),
             Mode::Command => COMMAND_PREFIX.to_string(),
         };

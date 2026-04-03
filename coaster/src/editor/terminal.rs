@@ -83,7 +83,7 @@ impl Terminal {
     pub fn set_caret_style(mode: Mode) -> Result<(), Error> {
         let style = match mode {
             Mode::Normal => BlinkingBlock,
-            Mode::Insert => BlinkingUnderScore,
+            Mode::Insert(_) => BlinkingUnderScore,
             _ => BlinkingBlock,
         };
         Self::queue_command(style)?;
