@@ -26,7 +26,8 @@ use view::View;
 
 pub const NAME: &str = env!("CARGO_PKG_NAME");
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-pub const COMMAND_PREFIX: &str = ":";
+pub const COMMAND_PREFIX: char = ':';
+pub const SEARCH_PREFIX: char = '/';
 
 #[derive(Default)]
 pub struct Editor {
@@ -70,6 +71,7 @@ impl Editor {
             Mode::Insert(_) => "-- INSERT --".to_string(),
             Mode::Normal => "-- NORMAL --".to_string(),
             Mode::Command => COMMAND_PREFIX.to_string(),
+            Mode::Search => SEARCH_PREFIX.to_string(),
         };
     }
 
@@ -156,29 +158,44 @@ impl Editor {
     }
 
     fn execute_command(&mut self) {
-        let command = self.message_bar.get_current_message();
-        for cmd in parse_command(command) {
-            match cmd {
-                Command::Save(filename) => {
-                    if self.view.save_as(&filename).is_err() {
-                        self.message_bar
-                            .show_error(format!("ERR: Failed to save file {filename}").as_str());
+        // remove `:` or `/` from the command
+        let command = self.message_bar.get_current_message()[1..].to_owned();
+        let mut new_mode = Mode::Normal;
+
+        match self.view.mode {
+            Mode::Command => {
+                for cmd in parse_command(&command) {
+                    match cmd {
+                        Command::Save(filename) => {
+                            if self.view.save_as(&filename).is_err() {
+                                self.message_bar.show_error(
+                                    format!("ERR: Failed to save file {filename}").as_str(),
+                                );
+                            }
+                        }
+                        Command::Quit => {
+                            if !self.is_dirty() {
+                                self.should_quit = true;
+                            } else {
+                                self.message_bar
+                                    .show_error("ERR: File is dirty. Save before quitting.");
+                            }
+                        }
+                        Command::ForceQuit => {
+                            self.should_quit = true;
+                        }
                     }
-                }
-                Command::Quit => {
-                    if !self.is_dirty() {
-                        self.should_quit = true;
-                    } else {
-                        self.message_bar
-                            .show_error("ERR: File is dirty. Save before quitting.");
-                    }
-                }
-                Command::ForceQuit => {
-                    self.should_quit = true;
                 }
             }
+            Mode::Search => {
+                self.view.search(&command);
+                // TODO: fix
+                new_mode = Mode::Search; // stay in search (for now)
+            }
+            _ => {}
         }
-        self.view.change_mode(Mode::Normal);
+
+        self.view.change_mode(new_mode);
         if !self.message_bar.is_showing_error() {
             self.message_bar.update_message(&self.get_status_text());
         }

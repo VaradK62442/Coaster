@@ -5,6 +5,7 @@ use crossterm::event::{
 };
 use std::convert::TryFrom;
 
+use super::super::editor::{COMMAND_PREFIX, SEARCH_PREFIX};
 use super::terminal::Size;
 
 #[derive(Clone, Copy)]
@@ -45,6 +46,7 @@ pub enum Mode {
     Normal,
     Insert(char),
     Command,
+    Search,
 }
 
 impl Default for Mode {
@@ -61,12 +63,16 @@ impl TryFrom<(Event, Mode)> for EditorCommand {
             Event::Key(KeyEvent {
                 code, modifiers, ..
             }) => match (mode, code, modifiers) {
-                // commands
-                (Mode::Command, KeyCode::Char(character), KeyModifiers::NONE) => {
+                // commands / searching
+                (Mode::Command | Mode::Search, KeyCode::Char(character), _) => {
                     Ok(Self::InsertCommand(character))
                 }
-                (Mode::Command, KeyCode::Enter, KeyModifiers::NONE) => Ok(Self::ExecuteCommand),
-                (Mode::Command, KeyCode::Backspace, _) => Ok(Self::DeleteCommand),
+                (Mode::Command | Mode::Search, KeyCode::Enter, KeyModifiers::NONE) => {
+                    Ok(Self::ExecuteCommand)
+                }
+                (Mode::Command | Mode::Search, KeyCode::Backspace, KeyModifiers::NONE) => {
+                    Ok(Self::DeleteCommand)
+                }
 
                 // changing mode
                 (Mode::Normal, KeyCode::Char('i'), KeyModifiers::NONE) => {
@@ -81,7 +87,12 @@ impl TryFrom<(Event, Mode)> for EditorCommand {
                 (Mode::Normal, KeyCode::Char('A'), KeyModifiers::SHIFT) => {
                     Ok(Self::ChangeMode(Mode::Insert('A')))
                 }
-                (Mode::Normal, KeyCode::Char(':'), _) => Ok(Self::ChangeMode(Mode::Command)),
+                (Mode::Normal, KeyCode::Char(COMMAND_PREFIX), KeyModifiers::NONE) => {
+                    Ok(Self::ChangeMode(Mode::Command))
+                }
+                (Mode::Normal, KeyCode::Char(SEARCH_PREFIX), KeyModifiers::NONE) => {
+                    Ok(Self::ChangeMode(Mode::Search))
+                }
                 (_, KeyCode::Esc, _) => Ok(Self::ChangeMode(Mode::Normal)),
 
                 // inserting

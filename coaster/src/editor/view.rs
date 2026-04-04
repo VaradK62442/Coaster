@@ -1,5 +1,7 @@
 mod buffer;
 mod line;
+mod location;
+mod searchinfo;
 
 use std::{
     cmp::{max, min},
@@ -10,18 +12,14 @@ use self::line::Line;
 use super::{
     DocumentStatus, NAME, VERSION,
     editorcommand::{Direction, EditorCommand, Mode},
-    terminal::{Position, Size, Terminal},
+    terminal::{Col, Position, Row, Size, Terminal},
     uicomponent::UIComponent,
 };
 use buffer::Buffer;
+use location::Location;
+use searchinfo::SearchInfo;
 
 const DEFAULT_LINE: &str = "~";
-
-#[derive(Copy, Clone, Default)]
-pub struct Location {
-    pub grapheme_index: usize,
-    pub line_index: usize,
-}
 
 #[derive(Default)]
 pub struct View {
@@ -32,6 +30,7 @@ pub struct View {
     text_location: Location,
     scroll_offset: Position,
     pub mode: Mode,
+    search_info: Option<SearchInfo>,
 }
 
 impl View {
@@ -47,25 +46,96 @@ impl View {
         }
     }
 
-    pub fn change_mode(&mut self, mode: Mode) {
-        match &mode {
-            Mode::Normal => {
-                if let Mode::Insert(_) = self.mode {
-                    self.move_text_location(&Direction::Left);
+    pub fn change_mode(&mut self, to: Mode) {
+        if self.mode == to {
+            return;
+        }
+
+        match &to {
+            Mode::Normal => match self.mode {
+                Mode::Insert(_) => self.move_text_location(&Direction::Left),
+                Mode::Search => {
+                    if let Some(search_info) = &self.search_info {
+                        self.text_location = search_info.prev_location;
+                        self.scroll_offset = search_info.prev_scroll_offset;
+                        self.mark_redrawn(true);
+                    }
+                    self.search_info = None;
+                    self.scroll_text_location_into_view();
                 }
-            }
+                _ => {}
+            },
             Mode::Insert(c) => match c {
                 'a' => self.move_text_location(&Direction::Right),
                 'I' => self.move_text_location(&Direction::Home),
                 'A' => self.move_text_location(&Direction::End),
                 _ => {}
             },
+            Mode::Search => {
+                self.search_info = Some(SearchInfo {
+                    prev_location: self.text_location,
+                    prev_scroll_offset: self.scroll_offset,
+                    query: Line::default(),
+                });
+            }
             _ => {}
         }
-        self.mode = mode;
+        self.mode = to;
     }
 
-    fn scroll_vertically(&mut self, to: usize) {
+    pub fn search(&mut self, query: &str) {
+        if let Some(search_info) = &mut self.search_info {
+            search_info.query = Line::from(query);
+        }
+        self.search_from(self.text_location);
+    }
+
+    fn search_from(&mut self, from: Location) {
+        if let Some(search_info) = self.search_info.as_ref() {
+            let query = &search_info.query;
+            if query.is_empty() {
+                return;
+            }
+
+            if let Some(location) = self.buffer.search(
+                query,
+                Location {
+                    line_idx: from.line_idx,
+                    grapheme_idx: from.grapheme_idx.saturating_sub(self.line_padding + 1),
+                },
+            ) {
+                self.text_location = Location {
+                    line_idx: location.line_idx,
+                    grapheme_idx: location.grapheme_idx.saturating_add(self.line_padding + 1),
+                };
+                self.center_text_location();
+            }
+        } else {
+            {
+                panic!("Attempting to search_from without search_info");
+            }
+        }
+    }
+
+    pub fn search_next(&mut self) {
+        let step_right;
+
+        if let Some(search_info) = self.search_info.as_ref() {
+            step_right = min(search_info.query.grapheme_count(), 1);
+        } else {
+            {
+                panic!("Attempting to search_next without search_info");
+            }
+        }
+
+        let location = Location {
+            line_idx: self.text_location.line_idx,
+            grapheme_idx: self.text_location.grapheme_idx.saturating_add(step_right),
+        };
+        self.search_from(location);
+    }
+
+    fn scroll_vertically(&mut self, to: Row) {
         let content_height = self.size.height.saturating_sub(1);
         let offset_changed = if to < self.scroll_offset.row {
             self.scroll_offset.row = to;
@@ -81,7 +151,7 @@ impl View {
         }
     }
 
-    fn scroll_horizontally(&mut self, to: usize) {
+    fn scroll_horizontally(&mut self, to: Col) {
         let text_col = to.saturating_sub(self.line_padding + 1);
         let visible_width = self.size.width.saturating_sub(self.line_padding + 1);
 
@@ -99,7 +169,17 @@ impl View {
         }
     }
 
-    fn scroll_location_into_view(&mut self) {
+    fn center_text_location(&mut self) {
+        let Size { height, width } = self.size;
+        let Position { row, col } = self.text_location_to_position();
+        let vertical_mid = height.div_ceil(2);
+        let horizontal_mid = width.div_ceil(2);
+        self.scroll_offset.row = row.saturating_sub(vertical_mid);
+        self.scroll_offset.col = col.saturating_sub(horizontal_mid);
+        self.mark_redrawn(true);
+    }
+
+    fn scroll_text_location_into_view(&mut self) {
         let Position { row, col } = self.text_location_to_position();
         self.scroll_vertically(row);
         self.scroll_horizontally(col);
@@ -111,21 +191,13 @@ impl View {
     }
 
     fn text_location_to_position(&self) -> Position {
-        Position {
-            col: self
-                .buffer
-                .lines
-                .get(self.text_location.line_index)
-                .map_or(0, |line| {
-                    line.width_until(
-                        self.text_location
-                            .grapheme_index
-                            .saturating_sub(self.line_padding + 1),
-                    )
-                })
-                .saturating_add(self.line_padding + 1),
-            row: self.text_location.line_index,
-        }
+        let row = self.text_location.line_idx;
+        let col = self
+            .buffer
+            .lines
+            .get(row)
+            .map_or(0, |line| line.width_until(self.text_location.grapheme_idx));
+        Position { col, row }
     }
 
     fn move_text_location(&mut self, direction: &Direction) {
@@ -140,23 +212,23 @@ impl View {
             Direction::Home => self.move_to_start_of_line(),
             Direction::End => self.move_to_end_of_line(),
         }
-        self.scroll_location_into_view();
+        self.scroll_text_location_into_view();
     }
 
     fn move_up(&mut self, step: usize) {
-        self.text_location.line_index = self.text_location.line_index.saturating_sub(step);
+        self.text_location.line_idx = self.text_location.line_idx.saturating_sub(step);
         self.snap_to_valid_grapheme();
     }
 
     fn move_down(&mut self, step: usize) {
-        self.text_location.line_index = self.text_location.line_index.saturating_add(step);
+        self.text_location.line_idx = self.text_location.line_idx.saturating_add(step);
         self.snap_to_valid_grapheme();
         self.snap_to_valid_line();
     }
 
     fn move_left(&mut self) {
-        if self.text_location.grapheme_index > self.line_padding + 1 {
-            self.text_location.grapheme_index -= 1;
+        if self.text_location.grapheme_idx > self.line_padding + 1 {
+            self.text_location.grapheme_idx -= 1;
         }
     }
 
@@ -164,44 +236,44 @@ impl View {
         let line_width = self
             .buffer
             .lines
-            .get(self.text_location.line_index)
+            .get(self.text_location.line_idx)
             .map_or(0, Line::grapheme_count);
-        if self.text_location.grapheme_index < line_width.saturating_add(self.line_padding) {
-            self.text_location.grapheme_index += 1;
+        if self.text_location.grapheme_idx < line_width.saturating_add(self.line_padding) {
+            self.text_location.grapheme_idx += 1;
         }
     }
 
     fn move_to_start_of_line(&mut self) {
-        self.text_location.grapheme_index = self.line_padding + 1;
+        self.text_location.grapheme_idx = self.line_padding + 1;
     }
 
     fn move_to_end_of_line(&mut self) {
-        self.text_location.grapheme_index = self
+        self.text_location.grapheme_idx = self
             .buffer
             .lines
-            .get(self.text_location.line_index)
+            .get(self.text_location.line_idx)
             .map_or(0, Line::grapheme_count)
             .saturating_add(self.line_padding);
     }
 
     fn snap_to_valid_grapheme(&mut self) {
-        self.text_location.grapheme_index = self
-            .buffer
-            .lines
-            .get(self.text_location.line_index)
-            .map_or(0, |line| {
-                max(
-                    min(
-                        line.grapheme_count().saturating_add(self.line_padding),
-                        self.text_location.grapheme_index,
-                    ),
-                    self.line_padding + 1,
-                )
-            })
+        self.text_location.grapheme_idx =
+            self.buffer
+                .lines
+                .get(self.text_location.line_idx)
+                .map_or(0, |line| {
+                    max(
+                        min(
+                            line.grapheme_count().saturating_add(self.line_padding),
+                            self.text_location.grapheme_idx,
+                        ),
+                        self.line_padding + 1,
+                    )
+                })
     }
 
     fn snap_to_valid_line(&mut self) {
-        self.text_location.line_index = min(self.text_location.line_index, self.buffer.height());
+        self.text_location.line_idx = min(self.text_location.line_idx, self.buffer.height());
     }
 
     fn render_line(at: usize, line_text: &str) -> Result<(), Error> {
@@ -236,7 +308,7 @@ impl View {
     pub fn get_status(&self) -> DocumentStatus {
         DocumentStatus {
             total_lines: self.buffer.height(),
-            current_line_index: self.text_location.line_index,
+            current_line_idx: self.text_location.line_idx,
             is_modified: self.buffer.dirty,
             filename: format!("{}", self.buffer.file_info),
         }
@@ -248,8 +320,8 @@ impl View {
         self.mark_redrawn(true);
         self.line_padding = self.buffer.height().to_string().len();
         self.text_location = Location {
-            grapheme_index: self.line_padding + 1,
-            line_index: 0,
+            grapheme_idx: self.line_padding + 1,
+            line_idx: 0,
         };
 
         Ok(())
@@ -265,23 +337,23 @@ impl View {
 
     fn get_adjusted_location(&self) -> Location {
         Location {
-            grapheme_index: self
+            grapheme_idx: self
                 .text_location
-                .grapheme_index
+                .grapheme_idx
                 .saturating_sub(self.line_padding + 1),
-            line_index: self.text_location.line_index,
+            line_idx: self.text_location.line_idx,
         }
     }
 
     fn delete_backwards(&mut self) {
-        if self.text_location.line_index != 0
+        if self.text_location.line_idx != 0
             || self
                 .text_location
-                .grapheme_index
+                .grapheme_idx
                 .saturating_sub(self.line_padding)
                 != 0
         {
-            if self.text_location.grapheme_index > self.line_padding + 1 {
+            if self.text_location.grapheme_idx > self.line_padding + 1 {
                 self.move_text_location(&Direction::Left);
             } else {
                 self.move_text_location(&Direction::Up);
@@ -307,7 +379,7 @@ impl View {
         let old_len = self
             .buffer
             .lines
-            .get(self.text_location.line_index)
+            .get(self.text_location.line_idx)
             .map_or(0, Line::grapheme_count);
 
         self.buffer
@@ -316,7 +388,7 @@ impl View {
         let new_len = self
             .buffer
             .lines
-            .get(self.text_location.line_index)
+            .get(self.text_location.line_idx)
             .map_or(0, Line::grapheme_count);
         let grapheme_delta = new_len.saturating_sub(old_len);
         if grapheme_delta > 0 {
@@ -337,7 +409,7 @@ impl UIComponent for View {
 
     fn set_size(&mut self, size: Size) {
         self.size = size;
-        self.scroll_location_into_view();
+        self.scroll_text_location_into_view();
     }
 
     fn draw(&mut self, origin_y: usize) -> Result<(), Error> {

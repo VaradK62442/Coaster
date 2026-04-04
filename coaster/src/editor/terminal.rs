@@ -15,10 +15,13 @@ pub struct Size {
     pub width: usize,
 }
 
+pub type Col = usize;
+pub type Row = usize;
+
 #[derive(Copy, Clone, Default)]
 pub struct Position {
-    pub col: usize,
-    pub row: usize,
+    pub col: Col,
+    pub row: Row,
 }
 
 impl Position {
@@ -122,10 +125,11 @@ impl Terminal {
         Self::print_row(
             row,
             &format!(
-                "{}{:width$.width$}{}",
+                "{}{:width$}{}",
                 Attribute::Reverse,
                 line_text,
-                Attribute::Reset
+                Attribute::Reset,
+                width = width
             ),
         )
     }
