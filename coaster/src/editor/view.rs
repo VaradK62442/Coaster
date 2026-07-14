@@ -71,48 +71,42 @@ impl View {
 
     pub fn search(&mut self, query: &str) {
         self.search_data.search_string = String::from(query);
-        self.search_from(self.text_location);
-    }
-
-    fn search_from(&mut self, from: Location) {
-        let query = &self.search_data.search_string;
-        if query.is_empty() {
-            return;
-        }
-
-        if let Some((location, count)) = self.buffer.search(
-            query,
-            Location {
-                line_idx: from.line_idx,
-                grapheme_idx: from.grapheme_idx.saturating_sub(self.line_padding + 1),
-            },
-        ) {
-            self.text_location = Location {
-                line_idx: location.line_idx,
-                grapheme_idx: location.grapheme_idx.saturating_add(self.line_padding + 1),
-            };
-            self.center_text_location();
-            self.search_data.count = count;
-            self.search_data.current_occurrence = 0;
-        }
+        self.search_data.occurrence_list = self.buffer.search_occurrences(query);
+        self.search_data.count = self.search_data.occurrence_list.len();
+        self.search_next();
     }
 
     pub fn search_next(&mut self) {
-        let step_right;
+        let mut found = false;
+        let mut found_occurrence = Location::default();
+        let mut i = 0;
 
-        step_right = min(
-            Line::from(&self.search_data.search_string).grapheme_count(),
-            1,
-        );
+        while !found && i < self.search_data.occurrence_list.len() {
+            let occurrence = self.search_data.occurrence_list[i];
+            // if occurrence.line_idx >= self.text_location.line_idx
+            //     && occurrence.grapheme_idx >= self.text_location.grapheme_idx.saturating_add(1)
+            if occurrence.line_idx > self.text_location.line_idx
+                || (occurrence.line_idx == self.text_location.line_idx
+                    && occurrence.grapheme_idx > self.text_location.grapheme_idx)
+            {
+                found = true;
+                self.search_data.current_occurrence = i + 1;
+                found_occurrence = occurrence;
+            }
+            i += 1;
+        }
 
-        let location = Location {
-            line_idx: self.text_location.line_idx,
-            grapheme_idx: self.text_location.grapheme_idx.saturating_add(step_right),
-        };
-        self.search_from(location);
+        // if no occurrence was found, wrap around to the first occurrence
+        if !found {
+            self.search_data.current_occurrence = 1;
+            found_occurrence = self.search_data.occurrence_list[0];
+        }
 
-        self.search_data.current_occurrence += 1;
-        self.search_data.current_occurrence %= self.search_data.count;
+        self.text_location.line_idx = found_occurrence.line_idx;
+        self.text_location.grapheme_idx = found_occurrence
+            .grapheme_idx
+            .saturating_add(self.line_padding + 1);
+        self.center_text_location();
     }
 
     pub fn get_search_message(&self) -> String {

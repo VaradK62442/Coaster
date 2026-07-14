@@ -154,6 +154,8 @@ impl Editor {
                 } else if let EditorCommand::SearchNext = command {
                     if !self.view.search_data.search_string.is_empty() {
                         self.view.search_next();
+                        self.message_bar
+                            .update_message(self.get_status_text().as_str());
                     }
                 } else if let EditorCommand::SearchPrevious = command {
                     // if !self.search_string.is_empty() {
