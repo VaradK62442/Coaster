@@ -98,7 +98,9 @@ impl Buffer {
         self.dirty = true;
     }
 
-    pub fn search(&self, query: &str, from: Location) -> Option<Location> {
+    pub fn search(&self, query: &str, from: Location) -> Option<(Location, usize)> {
+        let mut first_occurrence = None;
+        let mut count = 0;
         for (line_idx, line) in self.lines.iter().enumerate().skip(from.line_idx) {
             let from_grapheme_idx = if line_idx == from.line_idx {
                 from.grapheme_idx
@@ -106,22 +108,28 @@ impl Buffer {
                 0
             };
             if let Some(grapheme_idx) = line.search(query, from_grapheme_idx) {
-                return Some(Location {
-                    grapheme_idx,
-                    line_idx,
-                });
+                if first_occurrence.is_none() {
+                    first_occurrence = Some(Location {
+                        grapheme_idx,
+                        line_idx,
+                    });
+                }
+                count += 1;
             }
         }
 
         for (line_idx, line) in self.lines.iter().enumerate().take(from.line_idx) {
             if let Some(grapheme_idx) = line.search(query, 0) {
-                return Some(Location {
-                    grapheme_idx,
-                    line_idx,
-                });
+                if first_occurrence.is_none() {
+                    first_occurrence = Some(Location {
+                        grapheme_idx,
+                        line_idx,
+                    });
+                }
+                count += 1;
             }
         }
 
-        None
+        first_occurrence.map(|loc| (loc, count))
     }
 }

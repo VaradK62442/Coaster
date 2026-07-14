@@ -39,6 +39,10 @@ pub enum EditorCommand {
     // navigation
     Move(Direction),
     Resize(Size),
+
+    // searching
+    SearchNext,
+    SearchPrevious,
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -93,6 +97,8 @@ impl TryFrom<(Event, Mode)> for EditorCommand {
                 (Mode::Normal, KeyCode::Char(SEARCH_PREFIX), KeyModifiers::NONE) => {
                     Ok(Self::ChangeMode(Mode::Search))
                 }
+                (Mode::Normal, KeyCode::Char('n'), KeyModifiers::NONE) => Ok(Self::SearchNext),
+                (Mode::Normal, KeyCode::Char('N'), KeyModifiers::NONE) => Ok(Self::SearchPrevious),
                 (_, KeyCode::Esc, _) => Ok(Self::ChangeMode(Mode::Normal)),
 
                 // inserting

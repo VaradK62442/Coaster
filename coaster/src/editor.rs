@@ -69,7 +69,13 @@ impl Editor {
     fn get_status_text(&self) -> String {
         return match self.view.mode {
             Mode::Insert(_) => "-- INSERT --".to_string(),
-            Mode::Normal => "-- NORMAL --".to_string(),
+            Mode::Normal => {
+                if self.view.search_data.search_string.is_empty() {
+                    "-- NORMAL --".to_string()
+                } else {
+                    SEARCH_PREFIX.to_string() + &self.view.get_search_message()
+                }
+            }
             Mode::Command => COMMAND_PREFIX.to_string(),
             Mode::Search => SEARCH_PREFIX.to_string(),
         };
@@ -145,6 +151,14 @@ impl Editor {
                     self.message_bar.delete_last_char();
                 } else if let EditorCommand::ExecuteCommand = command {
                     self.execute_command();
+                } else if let EditorCommand::SearchNext = command {
+                    if !self.view.search_data.search_string.is_empty() {
+                        self.view.search_next();
+                    }
+                } else if let EditorCommand::SearchPrevious = command {
+                    // if !self.search_string.is_empty() {
+                    //     self.view.search_previous();
+                    // }
                 } else {
                     self.view.handle_command(command);
                 }
@@ -189,8 +203,7 @@ impl Editor {
             }
             Mode::Search => {
                 self.view.search(&command);
-                // TODO: fix
-                new_mode = Mode::Search; // stay in search (for now)
+                new_mode = Mode::Normal;
             }
             _ => {}
         }

@@ -1,7 +1,7 @@
 mod buffer;
 mod line;
 mod location;
-mod searchinfo;
+mod searchdata;
 
 use std::{
     cmp::{max, min},
@@ -17,7 +17,7 @@ use super::{
 };
 use buffer::Buffer;
 use location::Location;
-use searchinfo::SearchInfo;
+use searchdata::SearchData;
 
 const DEFAULT_LINE: &str = "~";
 
@@ -30,7 +30,7 @@ pub struct View {
     text_location: Location,
     scroll_offset: Position,
     pub mode: Mode,
-    search_info: Option<SearchInfo>,
+    pub search_data: SearchData,
 }
 
 impl View {
@@ -49,20 +49,13 @@ impl View {
     pub fn change_mode(&mut self, to: Mode) {
         if self.mode == to {
             return;
+        } else if self.mode == Mode::Normal {
+            self.search_data = SearchData::default()
         }
 
         match &to {
             Mode::Normal => match self.mode {
                 Mode::Insert(_) => self.move_text_location(&Direction::Left),
-                Mode::Search => {
-                    if let Some(search_info) = &self.search_info {
-                        self.text_location = search_info.prev_location;
-                        self.scroll_offset = search_info.prev_scroll_offset;
-                        self.mark_redrawn(true);
-                    }
-                    self.search_info = None;
-                    self.scroll_text_location_into_view();
-                }
                 _ => {}
             },
             Mode::Insert(c) => match c {
@@ -71,68 +64,64 @@ impl View {
                 'A' => self.move_text_location(&Direction::End),
                 _ => {}
             },
-            Mode::Search => {
-                self.search_info = Some(SearchInfo {
-                    prev_location: self.text_location,
-                    prev_scroll_offset: self.scroll_offset,
-                    query: Line::default(),
-                });
-            }
             _ => {}
         }
         self.mode = to;
     }
 
     pub fn search(&mut self, query: &str) {
-        if let Some(search_info) = &mut self.search_info {
-            search_info.query = Line::from(query);
-        }
+        self.search_data.search_string = String::from(query);
         self.search_from(self.text_location);
     }
 
     fn search_from(&mut self, from: Location) {
-        if let Some(search_info) = self.search_info.as_ref() {
-            let query = &search_info.query;
-            if query.is_empty() {
-                return;
-            }
+        let query = &self.search_data.search_string;
+        if query.is_empty() {
+            return;
+        }
 
-            if let Some(location) = self.buffer.search(
-                query,
-                Location {
-                    line_idx: from.line_idx,
-                    grapheme_idx: from.grapheme_idx.saturating_sub(self.line_padding + 1),
-                },
-            ) {
-                self.text_location = Location {
-                    line_idx: location.line_idx,
-                    grapheme_idx: location.grapheme_idx.saturating_add(self.line_padding + 1),
-                };
-                self.center_text_location();
-            }
-        } else {
-            {
-                panic!("Attempting to search_from without search_info");
-            }
+        if let Some((location, count)) = self.buffer.search(
+            query,
+            Location {
+                line_idx: from.line_idx,
+                grapheme_idx: from.grapheme_idx.saturating_sub(self.line_padding + 1),
+            },
+        ) {
+            self.text_location = Location {
+                line_idx: location.line_idx,
+                grapheme_idx: location.grapheme_idx.saturating_add(self.line_padding + 1),
+            };
+            self.center_text_location();
+            self.search_data.count = count;
+            self.search_data.current_occurrence = 0;
         }
     }
 
     pub fn search_next(&mut self) {
         let step_right;
 
-        if let Some(search_info) = self.search_info.as_ref() {
-            step_right = min(search_info.query.grapheme_count(), 1);
-        } else {
-            {
-                panic!("Attempting to search_next without search_info");
-            }
-        }
+        step_right = min(
+            Line::from(&self.search_data.search_string).grapheme_count(),
+            1,
+        );
 
         let location = Location {
             line_idx: self.text_location.line_idx,
             grapheme_idx: self.text_location.grapheme_idx.saturating_add(step_right),
         };
         self.search_from(location);
+
+        self.search_data.current_occurrence += 1;
+        self.search_data.current_occurrence %= self.search_data.count;
+    }
+
+    pub fn get_search_message(&self) -> String {
+        format!(
+            "{} [{}/{}]",
+            self.search_data.search_string,
+            self.search_data.current_occurrence,
+            self.search_data.count
+        )
     }
 
     fn scroll_vertically(&mut self, to: Row) {
