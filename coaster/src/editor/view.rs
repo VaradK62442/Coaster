@@ -21,6 +21,15 @@ use searchdata::SearchData;
 
 const DEFAULT_LINE: &str = "~";
 
+#[derive(PartialEq)]
+pub enum SearchDirection {
+    NEXT,
+    PREV,
+    // unused:
+    // FIRST,
+    // LAST,
+}
+
 #[derive(Default)]
 pub struct View {
     buffer: Buffer,
@@ -70,36 +79,79 @@ impl View {
     }
 
     pub fn search(&mut self, query: &str) {
+        if query.is_empty() {
+            return;
+        }
+
         self.search_data.search_string = String::from(query);
         self.search_data.occurrence_list = self.buffer.search_occurrences(query);
         self.search_data.count = self.search_data.occurrence_list.len();
-        self.search_next();
+        self.jump_to_occurrence(SearchDirection::NEXT);
     }
 
-    pub fn search_next(&mut self) {
-        let mut found = false;
+    pub fn jump_to_occurrence(&mut self, direction: SearchDirection) {
         let mut found_occurrence = Location::default();
-        let mut i = 0;
+        let occurrence_list: Vec<Location> = self.search_data.occurrence_list.clone();
 
-        while !found && i < self.search_data.occurrence_list.len() {
-            let occurrence = self.search_data.occurrence_list[i];
-            // if occurrence.line_idx >= self.text_location.line_idx
-            //     && occurrence.grapheme_idx >= self.text_location.grapheme_idx.saturating_add(1)
-            if occurrence.line_idx > self.text_location.line_idx
-                || (occurrence.line_idx == self.text_location.line_idx
-                    && occurrence.grapheme_idx > self.text_location.grapheme_idx)
-            {
-                found = true;
-                self.search_data.current_occurrence = i + 1;
-                found_occurrence = occurrence;
+        match direction {
+            // unused:
+            // SearchDirection::FIRST => {
+            //     self.search_data.current_occurrence = 1;
+            //     found_occurrence = self.search_data.occurrence_list[0].clone();
+            // }
+            // SearchDirection::LAST => {
+            //     self.search_data.current_occurrence = count;
+            //     found_occurrence = self.search_data.occurrence_list[count - 1].clone();
+            // }
+            SearchDirection::NEXT => {
+                let mut found = false;
+                let mut i = 0;
+                while !found && i < occurrence_list.len() {
+                    let occurrence = occurrence_list[i];
+                    if occurrence.line_idx > self.text_location.line_idx
+                        || (occurrence.line_idx == self.text_location.line_idx
+                            && occurrence.grapheme_idx > self.text_location.grapheme_idx)
+                    {
+                        found = true;
+                        self.search_data.current_occurrence = i + 1;
+                        found_occurrence = occurrence.clone();
+                    }
+                    i += 1;
+                }
+
+                // if no occurrence was found, wrap around to the first / last occurrence
+                if !found {
+                    self.search_data.current_occurrence = 1;
+                    found_occurrence = self.search_data.occurrence_list[0].clone();
+                }
             }
-            i += 1;
-        }
 
-        // if no occurrence was found, wrap around to the first occurrence
-        if !found {
-            self.search_data.current_occurrence = 1;
-            found_occurrence = self.search_data.occurrence_list[0];
+            SearchDirection::PREV => {
+                let mut found = false;
+                let mut i = self.search_data.count - 1;
+
+                while !found && i > 0 {
+                    let occurrence = occurrence_list[i];
+                    if occurrence.line_idx < self.text_location.line_idx
+                        || (occurrence.line_idx == self.text_location.line_idx
+                            && occurrence.grapheme_idx < self.text_location.grapheme_idx)
+                    {
+                        found = true;
+                        self.search_data.current_occurrence = i;
+                        found_occurrence = self.search_data.occurrence_list
+                            [self.search_data.current_occurrence - 1]
+                            .clone();
+                    }
+                    i -= 1;
+                }
+
+                // if no occurrence was found, wrap around to the first / last occurrence
+                if !found {
+                    self.search_data.current_occurrence = self.search_data.count;
+                    found_occurrence =
+                        self.search_data.occurrence_list[self.search_data.count - 1].clone();
+                }
+            }
         }
 
         self.text_location.line_idx = found_occurrence.line_idx;

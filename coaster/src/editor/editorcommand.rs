@@ -98,7 +98,7 @@ impl TryFrom<(Event, Mode)> for EditorCommand {
                     Ok(Self::ChangeMode(Mode::Search))
                 }
                 (Mode::Normal, KeyCode::Char('n'), KeyModifiers::NONE) => Ok(Self::SearchNext),
-                (Mode::Normal, KeyCode::Char('N'), KeyModifiers::NONE) => Ok(Self::SearchPrevious),
+                (Mode::Normal, KeyCode::Char('N'), KeyModifiers::SHIFT) => Ok(Self::SearchPrevious),
                 (_, KeyCode::Esc, _) => Ok(Self::ChangeMode(Mode::Normal)),
 
                 // inserting

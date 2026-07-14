@@ -22,7 +22,7 @@ use std::{
 };
 use terminal::Terminal;
 use uicomponent::UIComponent;
-use view::View;
+use view::{SearchDirection, View};
 
 pub const NAME: &str = env!("CARGO_PKG_NAME");
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -153,14 +153,16 @@ impl Editor {
                     self.execute_command();
                 } else if let EditorCommand::SearchNext = command {
                     if !self.view.search_data.search_string.is_empty() {
-                        self.view.search_next();
+                        self.view.jump_to_occurrence(SearchDirection::NEXT);
                         self.message_bar
                             .update_message(self.get_status_text().as_str());
                     }
                 } else if let EditorCommand::SearchPrevious = command {
-                    // if !self.search_string.is_empty() {
-                    //     self.view.search_previous();
-                    // }
+                    if !self.view.search_data.search_string.is_empty() {
+                        self.view.jump_to_occurrence(SearchDirection::PREV);
+                        self.message_bar
+                            .update_message(self.get_status_text().as_str());
+                    }
                 } else {
                     self.view.handle_command(command);
                 }
