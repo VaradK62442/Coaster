@@ -192,11 +192,17 @@ impl View {
 
     fn text_location_to_position(&self) -> Position {
         let row = self.text_location.line_idx;
-        let col = self
-            .buffer
-            .lines
-            .get(row)
-            .map_or(0, |line| line.width_until(self.text_location.grapheme_idx));
+        let col = self.buffer.lines.get(row).map_or(0, |line| {
+            line.width_until(
+                self.text_location.grapheme_idx,
+                max(
+                    0,
+                    self.text_location
+                        .grapheme_idx
+                        .saturating_sub(line.grapheme_count()),
+                ),
+            )
+        });
         Position { col, row }
     }
 

@@ -128,7 +128,7 @@ impl Line {
         self.fragments.len()
     }
 
-    pub fn width_until(&self, grapheme_idx: GraphemeIdx) -> GraphemeIdx {
+    pub fn width_until(&self, grapheme_idx: GraphemeIdx, overflow: usize) -> GraphemeIdx {
         self.fragments
             .iter()
             .take(grapheme_idx)
@@ -136,7 +136,8 @@ impl Line {
                 GraphemeWidth::Half => 1,
                 GraphemeWidth::Full => 2,
             })
-            .sum()
+            .sum::<usize>()
+            .saturating_add(overflow)
     }
 
     pub fn insert_char(&mut self, character: char, at: GraphemeIdx) {
