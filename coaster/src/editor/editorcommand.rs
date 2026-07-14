@@ -122,6 +122,7 @@ impl TryFrom<(Event, Mode)> for EditorCommand {
                 (Mode::Normal, Char('j'), KeyModifiers::NONE) => Ok(Self::Move(Direction::Down)),
                 (Mode::Normal, Char('k'), KeyModifiers::NONE) => Ok(Self::Move(Direction::Up)),
                 (Mode::Normal, Char('l'), KeyModifiers::NONE) => Ok(Self::Move(Direction::Right)),
+                (Mode::Normal, Char('0'), KeyModifiers::NONE) => Ok(Self::Move(Direction::Home)),
                 (Mode::Normal, Char('$'), KeyModifiers::NONE) => Ok(Self::Move(Direction::End)),
 
                 _ => Err(format!("Unsupported key code: {code:?}")),
