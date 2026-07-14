@@ -228,8 +228,8 @@ impl View {
 
     fn move_down(&mut self, step: usize) {
         self.text_location.line_idx = self.text_location.line_idx.saturating_add(step);
-        self.snap_to_valid_grapheme();
         self.snap_to_valid_line();
+        self.snap_to_valid_grapheme();
     }
 
     fn move_left(&mut self) {
@@ -279,7 +279,10 @@ impl View {
     }
 
     fn snap_to_valid_line(&mut self) {
-        self.text_location.line_idx = min(self.text_location.line_idx, self.buffer.height());
+        self.text_location.line_idx = min(
+            self.text_location.line_idx,
+            self.buffer.height().saturating_sub(1),
+        );
     }
 
     fn render_line(at: usize, line_text: &str) -> Result<(), Error> {
