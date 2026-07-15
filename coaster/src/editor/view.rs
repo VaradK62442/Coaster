@@ -12,7 +12,7 @@ use self::line::Line;
 use super::{
     DocumentStatus, NAME, VERSION,
     editorcommand::{Direction, EditorCommand, Mode},
-    terminal::{Col, Position, Row, Size, Terminal},
+    terminal::{Col, Colours, Position, Row, Size, Terminal},
     uicomponent::UIComponent,
 };
 use buffer::Buffer;
@@ -79,19 +79,27 @@ impl View {
     }
 
     pub fn search(&mut self, query: &str) {
-        if query.is_empty() {
-            return;
-        }
-
-        self.search_data.search_string = String::from(query);
-        self.search_data.occurrence_list = self.buffer.search_occurrences(query);
-        self.search_data.count = self.search_data.occurrence_list.len();
+        self.store_search_positions(query);
         self.jump_to_occurrence(SearchDirection::NEXT);
+    }
+
+    pub fn store_search_positions(&mut self, query: &str) {
+        self.search_data.search_string = String::from(query);
+        self.search_data.occurrence_list = if !query.is_empty() {
+            self.buffer.search_occurrences(query)
+        } else {
+            Vec::new()
+        };
+        self.search_data.count = self.search_data.occurrence_list.len();
     }
 
     pub fn jump_to_occurrence(&mut self, direction: SearchDirection) {
         let mut found_occurrence = Location::default();
         let occurrence_list: Vec<Location> = self.search_data.occurrence_list.clone();
+
+        if occurrence_list.is_empty() {
+            return;
+        }
 
         match direction {
             // unused:
@@ -158,7 +166,7 @@ impl View {
         self.text_location.grapheme_idx = found_occurrence
             .grapheme_idx
             .saturating_add(self.line_padding + 1);
-        self.center_text_location();
+        // self.center_text_location();
     }
 
     pub fn search_locations_to_positions(&self) -> Vec<Position> {
@@ -166,6 +174,10 @@ impl View {
             .occurrence_list
             .iter()
             .map(|occurrence| self.location_to_position(occurrence.clone()))
+            .map(|pos| Position {
+                col: pos.col.saturating_add(self.line_padding + 1),
+                row: pos.row,
+            })
             .collect()
     }
 
@@ -212,15 +224,18 @@ impl View {
         }
     }
 
-    fn center_text_location(&mut self) {
-        let Size { height, width } = self.size;
-        let Position { row, col } = self.location_to_position(self.text_location);
-        let vertical_mid = height.div_ceil(2);
-        let horizontal_mid = width.div_ceil(2);
-        self.scroll_offset.row = row.saturating_sub(vertical_mid);
-        self.scroll_offset.col = col.saturating_sub(horizontal_mid);
-        self.mark_redrawn(true);
-    }
+    // TODO #4: fix highlighting issue with moving cursor
+    // - either wrap lines or move highlighting accordingly
+    // - latter might be easier
+    // fn center_text_location(&mut self) {
+    //     let Size { height, width } = self.size;
+    //     let Position { row, col } = self.location_to_position(self.text_location);
+    //     let vertical_mid = height.div_ceil(2);
+    //     let horizontal_mid = width.div_ceil(2);
+    //     self.scroll_offset.row = row.saturating_sub(vertical_mid);
+    //     self.scroll_offset.col = col.saturating_sub(horizontal_mid);
+    //     self.mark_redrawn(true);
+    // }
 
     fn scroll_text_location_into_view(&mut self) {
         let Position { row, col } = self.location_to_position(self.text_location);
@@ -327,7 +342,10 @@ impl View {
     }
 
     fn render_line(at: usize, line_text: &str) -> Result<(), Error> {
-        Terminal::print_row(at, line_text)
+        Terminal::set_colours(Colours::Default)?;
+        Terminal::print_row(at, line_text)?;
+        Terminal::reset_colours()?;
+        Ok(())
     }
 
     /// Prints the name and version of the editor in the middle of the terminal
