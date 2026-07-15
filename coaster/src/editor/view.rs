@@ -16,7 +16,7 @@ use super::{
     uicomponent::UIComponent,
 };
 use buffer::Buffer;
-use location::Location;
+pub use location::Location;
 use searchdata::SearchData;
 
 const DEFAULT_LINE: &str = "~";
@@ -161,6 +161,14 @@ impl View {
         self.center_text_location();
     }
 
+    pub fn search_locations_to_positions(&self) -> Vec<Position> {
+        self.search_data
+            .occurrence_list
+            .iter()
+            .map(|occurrence| self.location_to_position(occurrence.clone()))
+            .collect()
+    }
+
     pub fn get_search_message(&self) -> String {
         format!(
             "{} [{}/{}]",
@@ -206,7 +214,7 @@ impl View {
 
     fn center_text_location(&mut self) {
         let Size { height, width } = self.size;
-        let Position { row, col } = self.text_location_to_position();
+        let Position { row, col } = self.location_to_position(self.text_location);
         let vertical_mid = height.div_ceil(2);
         let horizontal_mid = width.div_ceil(2);
         self.scroll_offset.row = row.saturating_sub(vertical_mid);
@@ -215,26 +223,24 @@ impl View {
     }
 
     fn scroll_text_location_into_view(&mut self) {
-        let Position { row, col } = self.text_location_to_position();
+        let Position { row, col } = self.location_to_position(self.text_location);
         self.scroll_vertically(row);
         self.scroll_horizontally(col);
     }
 
     pub fn caret_position(&self) -> Position {
-        self.text_location_to_position()
+        self.location_to_position(self.text_location)
             .saturating_sub(self.scroll_offset)
     }
 
-    fn text_location_to_position(&self) -> Position {
-        let row = self.text_location.line_idx;
+    fn location_to_position(&self, location: Location) -> Position {
+        let row = location.line_idx;
         let col = self.buffer.lines.get(row).map_or(0, |line| {
             line.width_until(
-                self.text_location.grapheme_idx,
+                location.grapheme_idx,
                 max(
                     0,
-                    self.text_location
-                        .grapheme_idx
-                        .saturating_sub(line.grapheme_count()),
+                    location.grapheme_idx.saturating_sub(line.grapheme_count()),
                 ),
             )
         });
