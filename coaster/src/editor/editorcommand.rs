@@ -8,14 +8,14 @@ use std::convert::TryFrom;
 use super::super::editor::{COMMAND_PREFIX, SEARCH_PREFIX};
 use super::terminal::Size;
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum WordComponent {
     Start,
     End,
     Back,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum Direction {
     PageUp,
     PageDown,
@@ -40,6 +40,7 @@ pub enum EditorCommand {
 
     // inserting
     InsertText(char),
+    InsertNewLine(Direction), // `o` / `O` in vim
     Backspace,
     Delete,
     Enter,
@@ -122,6 +123,12 @@ impl TryFrom<(Event, Mode)> for EditorCommand {
 
                 // editing
                 (Mode::Normal, KeyCode::Char('x'), KeyModifiers::NONE) => Ok(Self::Delete),
+                (Mode::Normal, KeyCode::Char('o'), KeyModifiers::NONE) => {
+                    Ok(Self::InsertNewLine(Direction::Down))
+                }
+                (Mode::Normal, KeyCode::Char('O'), KeyModifiers::SHIFT) => {
+                    Ok(Self::InsertNewLine(Direction::Up))
+                }
 
                 // navigation
                 (_, KeyCode::PageUp, _) => Ok(Self::Move(Direction::PageUp)),

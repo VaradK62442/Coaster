@@ -48,6 +48,7 @@ impl View {
             EditorCommand::Move(direction) => self.move_text_location(&direction),
             EditorCommand::Resize(_) => {}
             EditorCommand::InsertText(character) => self.insert_text_char(character),
+            EditorCommand::InsertNewLine(direction) => self.insert_newline_dir(&direction),
             EditorCommand::Backspace => self.delete_backwards(),
             EditorCommand::Delete => self.delete_forwards(),
             EditorCommand::Enter => self.insert_newline(),
@@ -62,20 +63,36 @@ impl View {
             self.search_data = SearchData::default()
         }
 
+        let previous_mode = self.mode;
+        self.mode = to;
         match &to {
-            Mode::Normal => match self.mode {
+            Mode::Normal => match previous_mode {
                 Mode::Insert(_) => self.move_text_location(&Direction::Left),
                 _ => {}
             },
-            Mode::Insert(c) => match c {
-                'a' => self.move_text_location(&Direction::Right),
-                'I' => self.move_text_location(&Direction::Home),
-                'A' => self.move_text_location(&Direction::End),
-                _ => {}
-            },
+            Mode::Insert(c) => {
+                match c {
+                    'a' => self.move_text_location(&Direction::Right),
+                    'I' => self.move_text_location(&Direction::Home),
+                    'A' => self.move_text_location(&Direction::End),
+                    _ => {}
+                }
+
+                // ghost space in insert mode
+                let total_line_width = self
+                    .buffer
+                    .lines
+                    .get(self.text_location.line_idx)
+                    .map_or(0, Line::grapheme_count)
+                    .saturating_add(self.line_padding);
+                if self.text_location.grapheme_idx + 1 > total_line_width
+                    && let Mode::Insert(_) = self.mode
+                {
+                    self.text_location.grapheme_idx += 1;
+                }
+            }
             _ => {}
         }
-        self.mode = to;
     }
 
     pub fn search(&mut self, query: &str) {
@@ -296,12 +313,17 @@ impl View {
     }
 
     fn move_right(&mut self) {
-        let line_width = self
+        let total_line_width = self
             .buffer
             .lines
             .get(self.text_location.line_idx)
-            .map_or(0, Line::grapheme_count);
-        if self.text_location.grapheme_idx < line_width.saturating_add(self.line_padding) {
+            .map_or(0, Line::grapheme_count)
+            .saturating_add(self.line_padding);
+        if self.text_location.grapheme_idx < total_line_width {
+            self.text_location.grapheme_idx += 1;
+        } else if let Mode::Insert(_) = self.mode
+            && self.text_location.grapheme_idx == total_line_width
+        {
             self.text_location.grapheme_idx += 1;
         }
     }
@@ -545,6 +567,29 @@ impl View {
         self.move_text_location(&Direction::Down);
         self.move_text_location(&Direction::Home);
         self.mark_redrawn(true);
+    }
+
+    fn insert_newline_dir(&mut self, direction: &Direction) {
+        match direction {
+            Direction::Down => {
+                self.move_to_end_of_line();
+                // ghost space at end of line
+                self.text_location.grapheme_idx += 1;
+                self.insert_newline();
+                self.text_location.grapheme_idx -= 1;
+            }
+            Direction::Up => {
+                self.move_to_start_of_line();
+                self.insert_newline();
+                self.move_up(1);
+                self.move_to_end_of_line();
+            }
+            _ => {
+                panic!("Invalid direction for newline insertion: {:?}", direction);
+            }
+        }
+
+        self.change_mode(Mode::Insert('\n'));
     }
 
     fn insert_text_char(&mut self, character: char) {
