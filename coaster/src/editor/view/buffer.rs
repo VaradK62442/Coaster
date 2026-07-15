@@ -98,6 +98,8 @@ impl Buffer {
         self.dirty = true;
     }
 
+    // TODO #5: this only finds first occurrence in each line
+    // - fix to find all occurrences on a given line
     pub fn search_occurrences(&self, query: &str) -> Vec<Location> {
         let mut occurrence_list = Vec::new();
         for (line_idx, line) in self.lines.iter().enumerate() {

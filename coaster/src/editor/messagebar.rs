@@ -7,7 +7,7 @@ use super::{
 
 #[derive(Default)]
 pub struct MessageBar {
-    current_message: String,
+    pub current_message: String,
     needs_redrawn: bool,
     showing_error: bool,
 }
