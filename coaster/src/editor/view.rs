@@ -86,9 +86,11 @@ impl View {
                     .map_or(0, Line::grapheme_count)
                     .saturating_add(self.line_padding);
                 if self.text_location.grapheme_idx + 1 > total_line_width
-                    && let Mode::Insert(_) = self.mode
+                    && let Mode::Insert(c) = self.mode
                 {
-                    self.text_location.grapheme_idx += 1;
+                    if c != 'i' {
+                        self.text_location.grapheme_idx += 1;
+                    }
                 }
             }
             _ => {}
