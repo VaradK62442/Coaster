@@ -8,6 +8,13 @@ use std::convert::TryFrom;
 use super::super::editor::{COMMAND_PREFIX, SEARCH_PREFIX};
 use super::terminal::Size;
 
+#[derive(Clone, Copy, PartialEq)]
+pub enum WordComponent {
+    Start,
+    End,
+    Back,
+}
+
 #[derive(Clone, Copy)]
 pub enum Direction {
     PageUp,
@@ -18,6 +25,7 @@ pub enum Direction {
     Left,
     Right,
     Down,
+    Word(WordComponent),
 }
 
 #[derive(Clone, Copy)]
@@ -130,6 +138,16 @@ impl TryFrom<(Event, Mode)> for EditorCommand {
                 (Mode::Normal, Char('l'), KeyModifiers::NONE) => Ok(Self::Move(Direction::Right)),
                 (Mode::Normal, Char('0'), KeyModifiers::NONE) => Ok(Self::Move(Direction::Home)),
                 (Mode::Normal, Char('$'), KeyModifiers::NONE) => Ok(Self::Move(Direction::End)),
+
+                (Mode::Normal, Char('w'), KeyModifiers::NONE) => {
+                    Ok(Self::Move(Direction::Word(WordComponent::Start)))
+                }
+                (Mode::Normal, Char('e'), KeyModifiers::NONE) => {
+                    Ok(Self::Move(Direction::Word(WordComponent::End)))
+                }
+                (Mode::Normal, Char('b'), KeyModifiers::NONE) => {
+                    Ok(Self::Move(Direction::Word(WordComponent::Back)))
+                }
 
                 _ => Err(format!("Unsupported key code: {code:?}")),
             },

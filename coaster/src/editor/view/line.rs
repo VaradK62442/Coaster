@@ -128,6 +128,10 @@ impl Line {
         self.fragments.len()
     }
 
+    pub fn grapheme_at(&self, grapheme_idx: GraphemeIdx) -> Option<char> {
+        self.fragments.get(grapheme_idx)?.grapheme.chars().next()
+    }
+
     pub fn width_until(&self, grapheme_idx: GraphemeIdx, overflow: usize) -> GraphemeIdx {
         self.fragments
             .iter()

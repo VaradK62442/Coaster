@@ -11,7 +11,7 @@ use std::{
 use self::line::Line;
 use super::{
     DocumentStatus, NAME, VERSION,
-    editorcommand::{Direction, EditorCommand, Mode},
+    editorcommand::{Direction, EditorCommand, Mode, WordComponent},
     terminal::{Col, Colours, Position, Row, Size, Terminal},
     uicomponent::UIComponent,
 };
@@ -273,6 +273,7 @@ impl View {
             Direction::PageDown => self.move_down(height.saturating_sub(1)),
             Direction::Home => self.move_to_start_of_line(),
             Direction::End => self.move_to_end_of_line(),
+            Direction::Word(component) => self.move_to_word(&component),
         }
         self.scroll_text_location_into_view();
     }
@@ -303,6 +304,109 @@ impl View {
         if self.text_location.grapheme_idx < line_width.saturating_add(self.line_padding) {
             self.text_location.grapheme_idx += 1;
         }
+    }
+
+    fn move_to_word(&mut self, component: &WordComponent) {
+        let line = match self.buffer.lines.get(self.text_location.line_idx) {
+            Some(l) => l,
+            None => return,
+        };
+        let line_width = line.grapheme_count();
+        let mut idx = self
+            .text_location
+            .grapheme_idx
+            .saturating_sub(self.line_padding + 1);
+
+        match component {
+            WordComponent::Start => {
+                // skip current word
+                while idx < line_width {
+                    if let Some(g) = line.grapheme_at(idx) {
+                        if !g.is_whitespace() {
+                            idx += 1;
+                        } else {
+                            break;
+                        }
+                    } else {
+                        break;
+                    }
+                }
+                // skip whitespace
+                while idx < line_width {
+                    if let Some(g) = line.grapheme_at(idx) {
+                        if g.is_whitespace() {
+                            idx += 1;
+                        } else {
+                            break;
+                        }
+                    } else {
+                        break;
+                    }
+                }
+
+                if idx + 1 < line_width {
+                    idx += 1;
+                }
+            }
+            WordComponent::End => {
+                // skip whitespace first if on whitespace
+                idx += 1;
+                while idx < line_width {
+                    if let Some(g) = line.grapheme_at(idx) {
+                        if g.is_whitespace() {
+                            idx += 1;
+                        } else {
+                            break;
+                        }
+                    } else {
+                        break;
+                    }
+                }
+                while idx < line_width {
+                    if let Some(g) = line.grapheme_at(idx) {
+                        if !g.is_whitespace() {
+                            idx += 1;
+                        } else {
+                            break;
+                        }
+                    } else {
+                        break;
+                    }
+                }
+            }
+            WordComponent::Back => {
+                if idx > 0
+                    && let Some(g) = line.grapheme_at(idx - 1)
+                {
+                    idx -= 1;
+                    if g.is_whitespace() {
+                        // skip over whitespace
+                        while idx > 0 {
+                            if let Some(g) = line.grapheme_at(idx) {
+                                if !g.is_whitespace() {
+                                    break;
+                                }
+                                idx -= 1;
+                            }
+                        }
+                    }
+
+                    // skip to start of current word
+                    while idx > 0 {
+                        if let Some(g) = line.grapheme_at(idx) {
+                            if g.is_whitespace() {
+                                idx += 1;
+                                break;
+                            }
+                            idx -= 1;
+                        }
+                    }
+                }
+                idx += 1;
+            }
+        }
+
+        self.text_location.grapheme_idx = idx.saturating_add(self.line_padding);
     }
 
     fn move_to_start_of_line(&mut self) {
