@@ -147,8 +147,20 @@ impl Editor {
                         .update_message(self.get_status_text().as_str());
                 } else if let EditorCommand::InsertCommand(c) = command {
                     self.message_bar.insert_command_char(c);
+                    match self.view.mode {
+                        Mode::Search => self
+                            .view
+                            .store_search_positions(&self.message_bar.current_message[1..]),
+                        _ => {}
+                    }
                 } else if let EditorCommand::DeleteCommand = command {
                     self.message_bar.delete_last_char();
+                    match self.view.mode {
+                        Mode::Search => self
+                            .view
+                            .store_search_positions(&self.message_bar.current_message[1..]),
+                        _ => {}
+                    }
                 } else if let EditorCommand::ExecuteCommand = command {
                     self.execute_command();
                 } else if let EditorCommand::SearchNext = command {
@@ -227,6 +239,8 @@ impl Editor {
             return;
         }
         let _ = Terminal::hide_caret();
+        let _ = Terminal::clear_screen();
+        self.view.mark_redrawn(true);
 
         self.message_bar
             .render(self.terminal_size.height.saturating_sub(1));
@@ -238,6 +252,10 @@ impl Editor {
             self.view.render(0);
         }
 
+        let _ = Terminal::highlight_search(
+            &self.view.search_data.search_string,
+            &self.view.search_locations_to_positions(),
+        );
         let _ = Terminal::move_caret_to(self.view.caret_position());
         let _ = Terminal::set_caret_style(self.view.mode.clone());
         let _ = Terminal::show_caret();
