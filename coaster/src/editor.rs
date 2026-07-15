@@ -240,6 +240,8 @@ impl Editor {
         }
         let _ = Terminal::hide_caret();
         let _ = Terminal::clear_screen();
+        self.status_bar.mark_redrawn(true);
+        self.message_bar.mark_redrawn(true);
         self.view.mark_redrawn(true);
 
         self.message_bar

@@ -98,16 +98,19 @@ impl Buffer {
         self.dirty = true;
     }
 
-    // TODO #5: this only finds first occurrence in each line
-    // - fix to find all occurrences on a given line
     pub fn search_occurrences(&self, query: &str) -> Vec<Location> {
         let mut occurrence_list = Vec::new();
+        let mut grapheme_idx;
         for (line_idx, line) in self.lines.iter().enumerate() {
-            if let Some(grapheme_idx) = line.search(query, 0) {
+            grapheme_idx = 0;
+            while let Some(idx) = line.search(query, grapheme_idx)
+                && grapheme_idx < line.grapheme_count()
+            {
                 occurrence_list.push(Location {
                     line_idx,
-                    grapheme_idx,
+                    grapheme_idx: idx,
                 });
+                grapheme_idx = idx + query.chars().count();
             }
         }
 
