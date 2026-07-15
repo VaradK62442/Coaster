@@ -1,13 +1,16 @@
-use super::editorcommand::Mode;
 use crossterm::cursor::SetCursorStyle::*;
 use crossterm::cursor::{Hide, MoveTo, Show};
-use crossterm::style::{Attribute, Print};
+use crossterm::style::{
+    Attribute, Color, Print, ResetColor, SetBackgroundColor, SetForegroundColor,
+};
 use crossterm::terminal::{
     Clear, ClearType, DisableLineWrap, EnableLineWrap, EnterAlternateScreen, LeaveAlternateScreen,
     SetTitle, disable_raw_mode, enable_raw_mode, size,
 };
 use crossterm::{Command, queue};
 use std::io::{Error, Write, stdout};
+
+use super::editorcommand::Mode;
 
 #[derive(Copy, Clone, Default, Eq, PartialEq)]
 pub struct Size {
@@ -31,6 +34,11 @@ impl Position {
             col: self.col.saturating_sub(other.col),
         }
     }
+}
+
+pub enum Colours {
+    Default,
+    SearchResult,
 }
 
 /// Represents the Terminal.
@@ -62,6 +70,35 @@ impl Terminal {
 
     pub fn clear_line() -> Result<(), Error> {
         Self::queue_command(Clear(ClearType::CurrentLine))?;
+        Ok(())
+    }
+
+    fn set_bg_colour(colour: Color) -> Result<(), Error> {
+        Self::queue_command(SetBackgroundColor(colour))?;
+        Ok(())
+    }
+
+    fn set_fg_colour(colour: Color) -> Result<(), Error> {
+        Self::queue_command(SetForegroundColor(colour))?;
+        Ok(())
+    }
+
+    pub fn set_colours(colours: Colours) -> Result<(), Error> {
+        match colours {
+            Colours::Default => {
+                Self::set_bg_colour(Color::Black)?;
+                Self::set_fg_colour(Color::White)?;
+            }
+            Colours::SearchResult => {
+                Self::set_bg_colour(Color::Yellow)?;
+                Self::set_fg_colour(Color::Black)?;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn reset_colours() -> Result<(), Error> {
+        Self::queue_command(ResetColor)?;
         Ok(())
     }
 
@@ -132,6 +169,19 @@ impl Terminal {
                 width = width
             ),
         )
+    }
+
+    pub fn highlight_search(search_string: &str, occurrences: &[Position]) -> Result<(), Error> {
+        for occurrence in occurrences {
+            Self::move_caret_to(Position {
+                row: occurrence.row,
+                col: occurrence.col,
+            })?;
+            Self::set_colours(Colours::SearchResult)?;
+            Self::queue_command(Print(search_string))?;
+            Self::reset_colours()?;
+        }
+        Ok(())
     }
 
     /// Returns the current size of the terminal.
