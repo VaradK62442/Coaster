@@ -448,6 +448,13 @@ impl View {
             .saturating_add(self.line_padding);
     }
 
+    pub fn go_to_line(&mut self, line_idx: usize) {
+        self.text_location.line_idx = line_idx;
+        self.snap_to_valid_line();
+        self.snap_to_valid_grapheme();
+        self.scroll_text_location_into_view();
+    }
+
     fn snap_to_valid_grapheme(&mut self) {
         self.text_location.grapheme_idx =
             self.buffer

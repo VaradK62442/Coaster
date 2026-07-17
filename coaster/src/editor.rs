@@ -203,6 +203,9 @@ impl Editor {
                                 );
                             }
                         }
+                        Command::JumpToLine(line_number) => {
+                            self.view.go_to_line(line_number.saturating_sub(1));
+                        }
                         Command::Quit => {
                             if !self.is_dirty() {
                                 self.should_quit = true;

@@ -7,10 +7,12 @@
 * w            => save
 * w <filename> => save as <filename>
 * x            => write and quit (alias for `wq`)
+* <number>     => jump to line number given
 */
 
 pub enum Command {
     Save(String),
+    JumpToLine(usize),
     Quit,
     ForceQuit,
 }
@@ -43,6 +45,15 @@ pub fn parse_command(command: &str) -> Vec<Command> {
 
     while i < num_tokens {
         token = tokens.clone()[i];
+
+        if token.parse::<f64>().is_ok() {
+            // we are jumping to a line number, ignore all other tokens
+            if let Some(line_number) = token.parse::<usize>().ok() {
+                commands.push(Command::JumpToLine(line_number));
+            }
+            return commands;
+        }
+
         while j < token.len() {
             subtoken = token.chars().nth(j).unwrap();
             match subtoken {
