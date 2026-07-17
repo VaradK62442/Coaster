@@ -1,4 +1,5 @@
 mod buffer;
+mod config;
 mod line;
 mod location;
 mod searchdata;
@@ -16,6 +17,7 @@ use super::{
     uicomponent::UIComponent,
 };
 use buffer::Buffer;
+use config::Config;
 pub use location::Location;
 use searchdata::SearchData;
 
@@ -40,6 +42,7 @@ pub struct View {
     scroll_offset: Position,
     pub mode: Mode,
     pub search_data: SearchData,
+    config: Config,
 }
 
 impl View {
@@ -510,6 +513,7 @@ impl View {
     }
 
     pub fn load(&mut self, filename: &str) -> Result<(), Error> {
+        self.config = Config::new();
         let buffer = Buffer::load(filename)?;
         self.buffer = buffer;
         self.mark_redrawn(true);
@@ -641,17 +645,14 @@ impl UIComponent for View {
             if let Some(line) = self.buffer.lines.get(current_row.saturating_add(top)) {
                 let left_text = self.scroll_offset.col;
                 let right_text = left_text.saturating_add(visible_width);
-                default_string = format!(
-                    "{:width$} ",
-                    current_row
-                        .saturating_add(self.scroll_offset.row)
-                        .saturating_add(1),
-                    width = self.line_padding
-                )
-                .to_owned();
+                default_string = self.config.get_formatted_line_number(
+                    current_row.saturating_add(self.scroll_offset.row),
+                    self.text_location.line_idx,
+                    self.line_padding,
+                );
                 default_string.push_str(&line.get_visible_graphemes(left_text..right_text));
             } else {
-                default_string = format!("{DEFAULT_LINE:width$} ", width = self.line_padding);
+                default_string = format!("{DEFAULT_LINE:>width$} ", width = self.line_padding);
                 if visible_width > 0 {
                     default_string.push_str(&" ".repeat(visible_width));
                 }
