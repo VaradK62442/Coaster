@@ -21,6 +21,8 @@ pub enum Direction {
     PageDown,
     Home,
     End,
+    Top,
+    Bottom,
     Up,
     Left,
     Right,
@@ -155,6 +157,10 @@ impl TryFrom<(Event, Mode)> for EditorCommand {
                 (Mode::Normal, Char('b'), KeyModifiers::NONE) => {
                     Ok(Self::Move(Direction::Word(WordComponent::Back)))
                 }
+
+                // TODO: `g` is not the vim command for this
+                (Mode::Normal, Char('g'), KeyModifiers::NONE) => Ok(Self::Move(Direction::Top)),
+                (Mode::Normal, Char('G'), KeyModifiers::SHIFT) => Ok(Self::Move(Direction::Bottom)),
 
                 _ => Err(format!("Unsupported key code: {code:?}")),
             },

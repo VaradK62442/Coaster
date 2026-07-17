@@ -294,6 +294,8 @@ impl View {
             Direction::PageDown => self.move_down(height.saturating_sub(1)),
             Direction::Home => self.move_to_start_of_line(),
             Direction::End => self.move_to_end_of_line(),
+            Direction::Top => self.go_to_line(0),
+            Direction::Bottom => self.go_to_line(self.buffer.lines.len().saturating_sub(1)),
             Direction::Word(component) => self.move_to_word(&component),
         }
         self.scroll_text_location_into_view();
