@@ -526,7 +526,7 @@ impl View {
         let buffer = Buffer::load(filename)?;
         self.buffer = buffer;
         self.mark_redrawn(true);
-        self.line_padding = self.buffer.height().to_string().len();
+        self.line_padding = self.buffer.height().to_string().len().saturating_add(1);
         self.text_location = Location {
             grapheme_idx: self.line_padding + 1,
             line_idx: 0,
