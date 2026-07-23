@@ -40,9 +40,9 @@ pub enum EditorCommand {
     // mode
     ChangeMode(Mode),
 
-    // inserting
+    // inserting / editing
     InsertText(char),
-    InsertNewLine(Direction), // `o` / `O` in vim
+    InsertNewLine(Direction),
     Backspace,
     Delete,
     Enter,

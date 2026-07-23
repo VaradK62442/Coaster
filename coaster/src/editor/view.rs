@@ -502,9 +502,9 @@ impl View {
         if width == 0 {
             welcome_msg = String::from(" ");
         } else if width <= len {
-            welcome_msg = String::from("~");
+            welcome_msg = DEFAULT_LINE.to_string();
         } else {
-            welcome_msg = format!("~{}{}", " ".repeat(half_width), to_print);
+            welcome_msg = format!("{DEFAULT_LINE}{}{}", " ".repeat(half_width), to_print);
             welcome_msg.truncate(width);
         }
 
